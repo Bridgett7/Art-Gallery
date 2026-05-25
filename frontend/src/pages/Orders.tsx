@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Tag, Space, message, Card, Popconfirm, Select, DatePicker,
-  Input, Row, Col, Divider, List, Tabs
+  Input, Row, Col, Divider, List, Tabs, Pagination
 } from 'antd';
 import { DeleteOutlined, FilterOutlined, ClearOutlined, ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ordersApi, OrderData, OrderItemData } from '../api/orders';
@@ -38,6 +38,11 @@ export default function Orders() {
   const [userSearch, setUserSearch] = useState('');
   const [dateFrom, setDateFrom] = useState<any>(null);
   const [dateTo, setDateTo] = useState<any>(null);
+
+  // Pagination
+  const [pageAll, setPageAll] = useState(1);
+  const [pageMy, setPageMy] = useState(1);
+  const pageSize = 5;
 
   useEffect(() => { loadOrders(); }, []);
 
@@ -389,7 +394,13 @@ export default function Orders() {
               </Col>
             </Row>
           </Card>
-          {filteredOrders.map(order => renderOrderCard(order, true))}
+          {filteredOrders.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(order => renderOrderCard(order, true))}
+          {filteredOrders.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 16 }}>
+              <Pagination current={pageAll} pageSize={pageSize} total={filteredOrders.length}
+                onChange={(p) => setPageAll(p)} showSizeChanger={false} />
+            </Row>
+          )}
           {filteredOrders.length === 0 && <Card><Text type="secondary">No orders found</Text></Card>}
         </div>
       ),
@@ -402,7 +413,13 @@ export default function Orders() {
           <Text type="secondary" style={{ display: 'block', textAlign: 'right', marginBottom: 12 }}>
             Total: {myOrders.length} orders
           </Text>
-          {myOrders.map(order => renderOrderCard(order, false))}
+          {myOrders.slice((pageMy - 1) * pageSize, pageMy * pageSize).map(order => renderOrderCard(order, false))}
+          {myOrders.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 16 }}>
+              <Pagination current={pageMy} pageSize={pageSize} total={myOrders.length}
+                onChange={(p) => setPageMy(p)} showSizeChanger={false} />
+            </Row>
+          )}
           {myOrders.length === 0 && <Card><Text type="secondary">No orders yet</Text></Card>}
         </div>
       ),

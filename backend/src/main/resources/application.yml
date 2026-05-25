@@ -49,3 +49,5 @@ app:
     currency: eur
   invoice:
     output-dir: ./invoices
+  chatbot:
+    url: http://localhost:5000

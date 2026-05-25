@@ -17,6 +17,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import GlobalSearch from '../components/GlobalSearch';
+import ChatWidget from '../components/ChatWidget';
 
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
@@ -119,6 +120,7 @@ export default function MainLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <ChatWidget />
     </Layout>
   );
 }

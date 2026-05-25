@@ -6,6 +6,9 @@ export interface ArtworkData {
   description: string;
   year: number | null;
   hasImage: boolean;
+  forSale: boolean;
+  price: number | null;
+  stock: number | null;
   artist: { idNumber: string; username: string } | null;
   category: { id: number; name: string } | null;
   catalogue: { id: number; name: string } | null;

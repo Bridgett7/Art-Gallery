@@ -64,8 +64,11 @@ public class ArtworkController {
             Integer year = body.get("year") != null ? ((Number) body.get("year")).intValue() : null;
             Long categoryId = body.get("categoryId") != null ? ((Number) body.get("categoryId")).longValue() : null;
             Long catalogueId = body.get("catalogueId") != null ? ((Number) body.get("catalogueId")).longValue() : null;
+            boolean forSale = body.get("forSale") != null && (Boolean) body.get("forSale");
+            Double price = body.get("price") != null ? ((Number) body.get("price")).doubleValue() : null;
+            Integer stock = body.get("stock") != null ? ((Number) body.get("stock")).intValue() : null;
 
-            Artwork artwork = artworkService.create(title, description, year, categoryId, catalogueId, userId, null);
+            Artwork artwork = artworkService.create(title, description, year, categoryId, catalogueId, userId, null, forSale, price, stock);
             return ResponseEntity.ok(toDto(artwork));
         } catch (SecurityException e) {
             return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
@@ -80,7 +83,7 @@ public class ArtworkController {
                                                 Authentication auth) {
         String userId = (String) auth.getPrincipal();
         try {
-            artworkService.updateWithPermission(id, null, null, null, null, null, userId, file);
+            artworkService.updateWithPermission(id, null, null, null, null, null, userId, file, null, null, null);
             return ResponseEntity.ok(Map.of("message", "Image uploaded"));
         } catch (SecurityException e) {
             return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
@@ -98,8 +101,11 @@ public class ArtworkController {
             Integer year = body.get("year") != null ? ((Number) body.get("year")).intValue() : null;
             Long categoryId = body.get("categoryId") != null ? ((Number) body.get("categoryId")).longValue() : null;
             Long catalogueId = body.get("catalogueId") != null ? ((Number) body.get("catalogueId")).longValue() : null;
+            Boolean forSale = body.containsKey("forSale") ? (Boolean) body.get("forSale") : null;
+            Double price = body.get("price") != null ? ((Number) body.get("price")).doubleValue() : null;
+            Integer stock = body.get("stock") != null ? ((Number) body.get("stock")).intValue() : null;
 
-            Artwork artwork = artworkService.updateWithPermission(id, title, description, year, categoryId, catalogueId, userId, null);
+            Artwork artwork = artworkService.updateWithPermission(id, title, description, year, categoryId, catalogueId, userId, null, forSale, price, stock);
             return ResponseEntity.ok(toDto(artwork));
         } catch (SecurityException e) {
             return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
@@ -164,6 +170,9 @@ public class ArtworkController {
         dto.put("description", artwork.getDescription());
         dto.put("year", artwork.getYear());
         dto.put("hasImage", artwork.getImage() != null);
+        dto.put("forSale", artwork.getForSale() != null && artwork.getForSale());
+        dto.put("price", artwork.getPrice());
+        dto.put("stock", artwork.getStock());
         dto.put("artist", artwork.getArtist() != null ? Map.of(
                 "idNumber", artwork.getArtist().getIdNumber(),
                 "username", artwork.getArtist().getUsername()

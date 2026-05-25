@@ -36,4 +36,15 @@ public class Artwork {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "catalogue_id")
     private Catalogue catalogue;
+
+    @Column(name = "for_sale")
+    @Builder.Default
+    private Boolean forSale = false;
+
+    private Double price;
+
+    private Integer stock;
+
+    @Column(name = "product_id")
+    private Long productId;
 }

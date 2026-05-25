@@ -18,6 +18,7 @@ public class ArtworkService implements IService<Artwork> {
     private final CategoryRepository categoryRepository;
     private final CatalogueRepository catalogueRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
     @Override
     @Transactional
@@ -66,7 +67,8 @@ public class ArtworkService implements IService<Artwork> {
 
     @Transactional
     public Artwork create(String title, String description, Integer year,
-                          Long categoryId, Long catalogueId, String artistId, MultipartFile imageFile) {
+                          Long categoryId, Long catalogueId, String artistId,
+                          MultipartFile imageFile, boolean forSale, Double price, Integer stock) {
         User artist = userRepository.findById(artistId)
                 .orElseThrow(() -> new RuntimeException("Artist not found"));
 
@@ -89,14 +91,29 @@ public class ArtworkService implements IService<Artwork> {
         Artwork artwork = Artwork.builder()
                 .title(title).description(description).year(year)
                 .image(imageBytes).artist(artist).category(category).catalogue(catalogue)
+                .forSale(forSale).price(price).stock(stock)
                 .build();
+
+        // If for sale, create a linked product in marketplace
+        if (Boolean.TRUE.equals(forSale) && price != null) {
+            Product product = Product.builder()
+                    .name(title)
+                    .description(description)
+                    .price(price)
+                    .stock(stock != null ? stock : 1)
+                    .image(imageBytes)
+                    .build();
+            product = productRepository.save(product);
+            artwork.setProductId(product.getId());
+        }
 
         return add(artwork);
     }
 
     @Transactional
     public Artwork updateWithPermission(Long id, String title, String description, Integer year,
-                                        Long categoryId, Long catalogueId, String currentUserId, MultipartFile imageFile) {
+                                        Long categoryId, Long catalogueId, String currentUserId,
+                                        MultipartFile imageFile, Boolean forSale, Double price, Integer stock) {
         Artwork artwork = findById(id);
         validatePermission(artwork, currentUserId);
 
@@ -111,6 +128,42 @@ public class ArtworkService implements IService<Artwork> {
                 artwork.setImage(imageFile.getBytes());
             } catch (IOException e) {
                 throw new RuntimeException("Failed to process image", e);
+            }
+        }
+
+        // Handle for sale logic
+        if (forSale != null) {
+            artwork.setForSale(forSale);
+            artwork.setPrice(price);
+            artwork.setStock(stock);
+
+            if (Boolean.TRUE.equals(forSale) && price != null) {
+                if (artwork.getProductId() != null) {
+                    // Update existing product
+                    productRepository.findById(artwork.getProductId()).ifPresent(product -> {
+                        product.setName(artwork.getTitle());
+                        product.setDescription(artwork.getDescription());
+                        product.setPrice(price);
+                        product.setStock(stock != null ? stock : 1);
+                        if (artwork.getImage() != null) product.setImage(artwork.getImage());
+                        productRepository.save(product);
+                    });
+                } else {
+                    // Create new product
+                    Product product = Product.builder()
+                            .name(artwork.getTitle())
+                            .description(artwork.getDescription())
+                            .price(price)
+                            .stock(stock != null ? stock : 1)
+                            .image(artwork.getImage())
+                            .build();
+                    product = productRepository.save(product);
+                    artwork.setProductId(product.getId());
+                }
+            } else if (Boolean.FALSE.equals(forSale) && artwork.getProductId() != null) {
+                // Remove from marketplace
+                productRepository.deleteById(artwork.getProductId());
+                artwork.setProductId(null);
             }
         }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Select, Space,
-  message, Popconfirm, Card, Tag, Row, Col
+  message, Popconfirm, Card, Tag, Row, Col, Pagination, Switch
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, PictureOutlined } from '@ant-design/icons';
 import { artworksApi, ArtworkData, CategoryData, CatalogueData } from '../api/artworks';
@@ -19,7 +19,9 @@ export default function Artworks() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingArtwork, setEditingArtwork] = useState<ArtworkData | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [form] = Form.useForm();
+  const pageSize = 6;
 
   useEffect(() => { loadData(); }, []);
 
@@ -56,6 +58,9 @@ export default function Artworks() {
       year: artwork.year,
       categoryId: artwork.category?.id,
       catalogueId: artwork.catalogue?.id,
+      forSale: artwork.forSale,
+      price: artwork.price,
+      stock: artwork.stock,
     });
     setModalOpen(true);
   };
@@ -107,7 +112,7 @@ export default function Artworks() {
       </Row>
 
       <Row gutter={[20, 20]}>
-        {artworks.map(artwork => (
+        {artworks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(artwork => (
           <Col xs={24} sm={12} md={8} lg={6} key={artwork.id}>
             <Card
               hoverable
@@ -136,12 +141,20 @@ export default function Artworks() {
                   {artwork.year && <Tag>{artwork.year}</Tag>}
                   {artwork.category && <Tag color="blue">{artwork.category.name}</Tag>}
                   {artwork.catalogue && <Tag color="purple">{artwork.catalogue.name}</Tag>}
+                  {artwork.forSale && <Tag color="green">🛒 {artwork.price} DT</Tag>}
                 </Space>
               </div>
             </Card>
           </Col>
         ))}
       </Row>
+
+      {artworks.length > pageSize && (
+        <Row justify="center" style={{ marginTop: 24 }}>
+          <Pagination current={currentPage} pageSize={pageSize} total={artworks.length}
+            onChange={(page) => setCurrentPage(page)} showSizeChanger={false} />
+        </Row>
+      )}
 
       {artworks.length === 0 && !loading && (
         <div style={{ textAlign: 'center', padding: 60 }}>
@@ -164,6 +177,25 @@ export default function Artworks() {
             <Select placeholder="Select catalogue" allowClear>
               {catalogues.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
             </Select>
+          </Form.Item>
+          <Form.Item name="forSale" label="For Sale" valuePropName="checked">
+            <Switch checkedChildren="Yes" unCheckedChildren="No" />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.forSale !== cur.forSale}>
+            {({ getFieldValue }) => getFieldValue('forSale') ? (
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="price" label="Price (DT)" rules={[{ required: true, message: 'Price required' }]}>
+                    <InputNumber style={{ width: '100%' }} min={0} step={0.5} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="stock" label="Stock" rules={[{ required: true, message: 'Stock required' }]}>
+                    <InputNumber style={{ width: '100%' }} min={1} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            ) : null}
           </Form.Item>
         </Form>
       </Modal>

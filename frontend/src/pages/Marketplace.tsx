@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Space,
-  message, Card, Row, Col, Popconfirm, Tag, Tabs
+  message, Card, Row, Col, Popconfirm, Tag, Tabs, Pagination
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { productsApi, ProductData } from '../api/products';
@@ -20,7 +20,10 @@ export default function Marketplace() {
   const [editingProduct, setEditingProduct] = useState<ProductData | null>(null);
   const [searchAll, setSearchAll] = useState('');
   const [searchMy, setSearchMy] = useState('');
+  const [pageAll, setPageAll] = useState(1);
+  const [pageMy, setPageMy] = useState(1);
   const [form] = Form.useForm();
+  const pageSize = 6;
 
   const isArtist = user?.role === 'ARTIST' || user?.role === 'ADMIN';
 
@@ -145,8 +148,14 @@ export default function Marketplace() {
           <Input prefix={<SearchOutlined />} placeholder="Search a product..." value={searchAll}
             onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300, marginBottom: 16 }} />
           <Row gutter={[20, 20]}>
-            {allProducts.map(p => renderProductCard(p, user?.role === 'ADMIN'))}
+            {allProducts.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(p => renderProductCard(p, user?.role === 'ADMIN'))}
           </Row>
+          {allProducts.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageAll} pageSize={pageSize} total={allProducts.length}
+                onChange={(p) => setPageAll(p)} showSizeChanger={false} />
+            </Row>
+          )}
         </div>
       ),
     },
@@ -163,8 +172,14 @@ export default function Marketplace() {
             </Button>
           </Row>
           <Row gutter={[20, 20]}>
-            {myProducts.map(p => renderProductCard(p, true))}
+            {myProducts.slice((pageMy - 1) * pageSize, pageMy * pageSize).map(p => renderProductCard(p, true))}
           </Row>
+          {myProducts.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageMy} pageSize={pageSize} total={myProducts.length}
+                onChange={(p) => setPageMy(p)} showSizeChanger={false} />
+            </Row>
+          )}
         </div>
       ),
     },
@@ -186,8 +201,14 @@ export default function Marketplace() {
               onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300 }} />
           </Row>
           <Row gutter={[20, 20]}>
-            {allProducts.map(p => renderProductCard(p, false))}
+            {allProducts.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(p => renderProductCard(p, false))}
           </Row>
+          {allProducts.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageAll} pageSize={pageSize} total={allProducts.length}
+                onChange={(p) => setPageAll(p)} showSizeChanger={false} />
+            </Row>
+          )}
         </div>
       )}
 

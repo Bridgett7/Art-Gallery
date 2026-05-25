@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Select, Space, DatePicker,
-  message, Card, Tag, Row, Col, Switch, Tabs, Popconfirm, List
+  message, Card, Tag, Row, Col, Switch, Tabs, Popconfirm, List, Pagination
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, EnvironmentOutlined, TagOutlined } from '@ant-design/icons';
 import { eventsApi, EventData } from '../api/events';
@@ -19,7 +19,9 @@ export default function Events() {
   const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
   const [searchText, setSearchText] = useState('');
   const [filter, setFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [form] = Form.useForm();
+  const pageSize = 6;
 
   useEffect(() => {
     loadEvents();
@@ -204,7 +206,7 @@ export default function Events() {
       ) : (
         <>
           <Row gutter={[20, 20]}>
-            {events.map(event => (
+            {events.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(event => (
               <Col xs={24} md={12} lg={8} key={event.id}>
                 <Card
                   hoverable
@@ -247,6 +249,13 @@ export default function Events() {
               </Col>
             ))}
           </Row>
+
+          {events.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={currentPage} pageSize={pageSize} total={events.length}
+                onChange={(page) => setCurrentPage(page)} showSizeChanger={false} />
+            </Row>
+          )}
 
           {events.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: 60 }}>

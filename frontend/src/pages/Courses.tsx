@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Select, Space,
-  message, Card, Tag, Row, Col, Popconfirm, Tabs, Drawer, List, Empty
+  message, Card, Tag, Row, Col, Popconfirm, Tabs, Drawer, List, Empty, Pagination
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, BookOutlined } from '@ant-design/icons';
 import { coursesApi, CourseData, LessonData } from '../api/courses';
@@ -20,7 +20,10 @@ export default function Courses() {
   const [editingCourse, setEditingCourse] = useState<CourseData | null>(null);
   const [searchAll, setSearchAll] = useState('');
   const [searchMy, setSearchMy] = useState('');
+  const [pageAll, setPageAll] = useState(1);
+  const [pageMy, setPageMy] = useState(1);
   const [form] = Form.useForm();
+  const pageSize = 6;
 
   // Drawer for lessons
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -172,8 +175,14 @@ export default function Courses() {
             </Col>
           </Row>
           <Row gutter={[20, 20]}>
-            {allCourses.map(c => renderCourseCard(c, c.artistId === user?.userId))}
+            {allCourses.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(c => renderCourseCard(c, c.artistId === user?.userId))}
           </Row>
+          {allCourses.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageAll} pageSize={pageSize} total={allCourses.length}
+                onChange={(p) => setPageAll(p)} showSizeChanger={false} />
+            </Row>
+          )}
           {allCourses.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses found</Text></div>
           )}
@@ -195,8 +204,14 @@ export default function Courses() {
             </Col>
           </Row>
           <Row gutter={[20, 20]}>
-            {myCourses.map(c => renderCourseCard(c, true))}
+            {myCourses.slice((pageMy - 1) * pageSize, pageMy * pageSize).map(c => renderCourseCard(c, true))}
           </Row>
+          {myCourses.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageMy} pageSize={pageSize} total={myCourses.length}
+                onChange={(p) => setPageMy(p)} showSizeChanger={false} />
+            </Row>
+          )}
           {myCourses.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses yet</Text></div>
           )}
@@ -223,8 +238,14 @@ export default function Courses() {
             </Col>
           </Row>
           <Row gutter={[20, 20]}>
-            {allCourses.map(c => renderCourseCard(c, false))}
+            {allCourses.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(c => renderCourseCard(c, false))}
           </Row>
+          {allCourses.length > pageSize && (
+            <Row justify="center" style={{ marginTop: 24 }}>
+              <Pagination current={pageAll} pageSize={pageSize} total={allCourses.length}
+                onChange={(p) => setPageAll(p)} showSizeChanger={false} />
+            </Row>
+          )}
           {allCourses.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses found</Text></div>
           )}
