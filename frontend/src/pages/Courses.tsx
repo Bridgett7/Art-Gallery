@@ -6,11 +6,13 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, BookOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { coursesApi, CourseData, LessonData } from '../api/courses';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 
 export default function Courses() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isArtistOrAdmin = user?.role === 'ARTIST' || user?.role === 'ADMIN';
 
   const [allCourses, setAllCourses] = useState<CourseData[]>([]);
@@ -48,7 +50,7 @@ export default function Courses() {
       if (isArtistOrAdmin) {
         setMyCourses(res.data.filter(c => c.artistId === user?.userId));
       }
-    } catch { message.error('Failed to load courses'); }
+    } catch { message.error(t('common.failed')); }
     finally { setLoading(false); }
   };
 
@@ -78,7 +80,7 @@ export default function Courses() {
 
   const handleDelete = async (id: number) => {
     await coursesApi.delete(id);
-    message.success('Course deleted');
+    message.success(t('courses.deleted'));
     loadCourses();
   };
 
@@ -87,10 +89,10 @@ export default function Courses() {
     try {
       if (editingCourse) {
         await coursesApi.update(editingCourse.id, values);
-        message.success('Course updated');
+        message.success(t('courses.updated'));
       } else {
         await coursesApi.create(values);
-        message.success('Course created');
+        message.success(t('courses.created'));
       }
       setModalOpen(false);
       loadCourses();
@@ -104,7 +106,7 @@ export default function Courses() {
     try {
       const res = await coursesApi.getLessons(course.id);
       setLessons(res.data);
-    } catch { message.error('Failed to load lessons'); }
+    } catch { message.error(t('common.failed')); }
   };
 
   const handleAddLesson = () => { lessonForm.resetFields(); setLessonFile(null); setLessonModalOpen(true); };
@@ -123,7 +125,7 @@ export default function Courses() {
       if (lessonFile) {
         await coursesApi.uploadLessonAttachment(lessonId, lessonFile);
       }
-      message.success('Lesson added');
+      message.success(t('courses.lessonAdded'));
       setLessonModalOpen(false);
       setLessonFile(null);
       const lessonsRes = await coursesApi.getLessons(selectedCourse.id);
@@ -134,7 +136,7 @@ export default function Courses() {
   const handleDeleteLesson = async (id: number) => {
     if (!selectedCourse) return;
     await coursesApi.deleteLesson(id);
-    message.success('Lesson deleted');
+    message.success(t('courses.lessonDeleted'));
     const res = await coursesApi.getLessons(selectedCourse.id);
     setLessons(res.data);
   };
@@ -145,14 +147,14 @@ export default function Courses() {
       setViewingLesson(res.data);
       setLessonContent(res.data.content || '');
       setEditingContent(false);
-    } catch { message.error('Failed to load lesson'); }
+    } catch { message.error(t('common.failed')); }
   };
 
   const handleSaveContent = async () => {
     if (!viewingLesson) return;
     try {
       await coursesApi.updateLessonContent(viewingLesson.id, lessonContent);
-      message.success('Content saved');
+      message.success(t('courses.contentSaved'));
       setEditingContent(false);
       setViewingLesson({ ...viewingLesson, content: lessonContent, hasContent: true });
       // Refresh lessons list
@@ -160,20 +162,20 @@ export default function Courses() {
         const res = await coursesApi.getLessons(selectedCourse.id);
         setLessons(res.data);
       }
-    } catch { message.error('Failed to save'); }
+    } catch { message.error(t('common.failed')); }
   };
 
   const handleUploadAttachment = async (file: File) => {
     if (!viewingLesson) return;
     try {
       const res = await coursesApi.uploadLessonAttachment(viewingLesson.id, file);
-      message.success('Attachment uploaded');
+      message.success(t('courses.attachmentUploaded'));
       setViewingLesson({ ...viewingLesson, hasAttachment: true, attachmentName: (res.data as any).filename });
       if (selectedCourse) {
         const lessonsRes = await coursesApi.getLessons(selectedCourse.id);
         setLessons(lessonsRes.data);
       }
-    } catch { message.error('Upload failed'); }
+    } catch { message.error(t('common.failed')); }
   };
 
   const handleDownloadAttachment = (lessonId: number) => {
@@ -196,7 +198,7 @@ export default function Courses() {
         onClick={() => openLessons(course)}
         actions={isOwner ? [
           <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); handleEdit(course); }} />,
-          <Popconfirm key="del" title="Delete?" onConfirm={() => handleDelete(course.id)}
+          <Popconfirm key="del" title={t('common.deleteConfirm')} onConfirm={() => handleDelete(course.id)}
             onPopupClick={(e) => e?.stopPropagation()}>
             <DeleteOutlined onClick={(e) => e.stopPropagation()} />
           </Popconfirm>,
@@ -209,7 +211,7 @@ export default function Courses() {
             <Title level={5} style={{ margin: 0 }}>{course.title}</Title>
             <Tag color={levelColor(course.level)}>{course.level || 'N/A'}</Tag>
           </Row>
-          <Text type="secondary">{course.description || 'No description'}</Text>
+          <Text type="secondary">{course.description || t('common.noDescription')}</Text>
           <Row justify="space-between" style={{ marginTop: 8 }}>
             {course.duration && <Text>⏱ {course.duration}h</Text>}
             {course.price != null && <Text strong style={{ color: '#27AE60' }}>{course.price} DT</Text>}
@@ -222,12 +224,12 @@ export default function Courses() {
   const tabItems = isArtistOrAdmin ? [
     {
       key: 'all',
-      label: 'All Courses',
+      label: t('courses.allCourses'),
       children: (
         <div>
           <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
             <Col>
-              <Input prefix={<SearchOutlined />} placeholder="Search courses..." value={searchAll}
+              <Input prefix={<SearchOutlined />} placeholder={t('courses.search')} value={searchAll}
                 onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300 }} />
             </Col>
           </Row>
@@ -241,23 +243,23 @@ export default function Courses() {
             </Row>
           )}
           {allCourses.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses found</Text></div>
+            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">{t('courses.noCourses')}</Text></div>
           )}
         </div>
       ),
     },
     {
       key: 'my',
-      label: 'My Courses',
+      label: t('courses.myCourses'),
       children: (
         <div>
           <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
             <Col>
-              <Input prefix={<SearchOutlined />} placeholder="Search my courses..." value={searchMy}
+              <Input prefix={<SearchOutlined />} placeholder={t('courses.searchMy')} value={searchMy}
                 onChange={(e) => handleSearchMy(e.target.value)} style={{ width: 300 }} />
             </Col>
             <Col>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Add Course</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('courses.addCourse')}</Button>
             </Col>
           </Row>
           <Row gutter={[20, 20]}>
@@ -270,7 +272,7 @@ export default function Courses() {
             </Row>
           )}
           {myCourses.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses yet</Text></div>
+            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">{t('courses.noCoursesYet')}</Text></div>
           )}
         </div>
       ),
@@ -280,8 +282,8 @@ export default function Courses() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>COURSES</Title>
-        <Text type="secondary">Explore and manage art courses</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('courses.title')}</Title>
+        <Text type="secondary">{t('courses.subtitle')}</Text>
       </div>
 
       {isArtistOrAdmin ? (
@@ -290,7 +292,7 @@ export default function Courses() {
         <div>
           <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
             <Col>
-              <Input prefix={<SearchOutlined />} placeholder="Search courses..." value={searchAll}
+              <Input prefix={<SearchOutlined />} placeholder={t('courses.search')} value={searchAll}
                 onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300 }} />
             </Col>
           </Row>
@@ -304,30 +306,30 @@ export default function Courses() {
             </Row>
           )}
           {allCourses.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">No courses found</Text></div>
+            <div style={{ textAlign: 'center', padding: 60 }}><Text type="secondary">{t('courses.noCourses')}</Text></div>
           )}
         </div>
       )}
 
       {/* Course Create/Edit Modal */}
-      <Modal title={editingCourse ? 'Edit Course' : 'Add Course'} open={modalOpen}
-        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingCourse ? 'Update' : 'Create'}>
+      <Modal title={editingCourse ? t('courses.editCourse') : t('courses.addCourse')} open={modalOpen}
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingCourse ? t('common.update') : t('common.create')}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
-          <Form.Item name="level" label="Level">
-            <Select placeholder="Select level" allowClear>
-              <Select.Option value="BEGINNER">Beginner</Select.Option>
-              <Select.Option value="INTERMEDIATE">Intermediate</Select.Option>
-              <Select.Option value="ADVANCED">Advanced</Select.Option>
+          <Form.Item name="title" label={t('courses.title_field')} rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="description" label={t('courses.description_field')}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="level" label={t('courses.level')}>
+            <Select placeholder={t('courses.selectLevel')} allowClear>
+              <Select.Option value="BEGINNER">{t('courses.beginner')}</Select.Option>
+              <Select.Option value="INTERMEDIATE">{t('courses.intermediate')}</Select.Option>
+              <Select.Option value="ADVANCED">{t('courses.advanced')}</Select.Option>
             </Select>
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="duration" label="Duration (hours)"><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
+              <Form.Item name="duration" label={t('courses.durationHours')}><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="price" label="Price (DT)"><InputNumber style={{ width: '100%' }} min={0} step={0.5} /></Form.Item>
+              <Form.Item name="price" label={t('courses.price')}><InputNumber style={{ width: '100%' }} min={0} step={0.5} /></Form.Item>
             </Col>
           </Row>
         </Form>
@@ -335,25 +337,25 @@ export default function Courses() {
 
       {/* Lessons Drawer */}
       <Drawer
-        title={selectedCourse ? `Lessons — ${selectedCourse.title}` : 'Lessons'}
+        title={selectedCourse ? `${t('courses.lessons')} — ${selectedCourse.title}` : t('courses.lessons')}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={500}
         extra={isArtistOrAdmin && selectedCourse?.artistId === user?.userId && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddLesson}>Add Lesson</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddLesson}>{t('courses.addLesson')}</Button>
         )}
       >
         {lessons.length === 0 ? (
-          <Empty description="No lessons yet" />
+          <Empty description={t('courses.noLessons')} />
         ) : (
           <List
             dataSource={lessons}
             renderItem={(lesson, index) => (
               <List.Item
                 actions={[
-                  <Button icon={<EyeOutlined />} size="small" onClick={() => handleViewLesson(lesson)}>View</Button>,
+                  <Button icon={<EyeOutlined />} size="small" onClick={() => handleViewLesson(lesson)}>{t('courses.viewLesson')}</Button>,
                   ...(isArtistOrAdmin && selectedCourse?.artistId === user?.userId ? [
-                    <Popconfirm title="Delete?" onConfirm={() => handleDeleteLesson(lesson.id)}>
+                    <Popconfirm title={t('common.deleteConfirm')} onConfirm={() => handleDeleteLesson(lesson.id)}>
                       <Button icon={<DeleteOutlined />} size="small" danger />
                     </Popconfirm>
                   ] : []),
@@ -370,7 +372,7 @@ export default function Courses() {
                   }
                   description={
                     <Space direction="vertical" size={2}>
-                      <Text type="secondary">{lesson.description || 'No description'}</Text>
+                      <Text type="secondary">{lesson.description || t('common.noDescription')}</Text>
                       <Space size={12}>
                         {lesson.level && <Tag color={levelColor(lesson.level)}>{lesson.level}</Tag>}
                         {lesson.duration && <Text type="secondary">⏱ {lesson.duration} min</Text>}
@@ -402,7 +404,7 @@ export default function Courses() {
             {viewingLesson.description && <Text type="secondary">{viewingLesson.description}</Text>}
 
             {/* Content */}
-            <Card size="small" title="Lesson Content" extra={
+            <Card size="small" title={t('courses.content')} extra={
               isArtistOrAdmin && selectedCourse?.artistId === user?.userId && (
                 editingContent
                   ? <Space><Button size="small" type="primary" onClick={handleSaveContent}>Save</Button><Button size="small" onClick={() => setEditingContent(false)}>Cancel</Button></Space>
@@ -414,27 +416,27 @@ export default function Courses() {
                   value={lessonContent}
                   onChange={(e) => setLessonContent(e.target.value)}
                   rows={12}
-                  placeholder="Write your lesson content here..."
+                  placeholder={t('courses.writeContent')}
                   style={{ fontFamily: 'inherit' }}
                 />
               ) : (
                 <div style={{ minHeight: 100, whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
-                  {viewingLesson.content || <Text type="secondary" italic>No content yet</Text>}
+                  {viewingLesson.content || <Text type="secondary" italic>{t('courses.noContent')}</Text>}
                 </div>
               )}
             </Card>
 
             {/* Attachment */}
-            <Card size="small" title="Attachment">
+            <Card size="small" title={t('courses.attachment')}>
               {viewingLesson.hasAttachment ? (
                 <Space>
                   <Text>📎 {viewingLesson.attachmentName || 'document.pdf'}</Text>
                   <Button icon={<DownloadOutlined />} size="small" onClick={() => handleDownloadAttachment(viewingLesson.id)}>
-                    Download
+                    {t('courses.download')}
                   </Button>
                 </Space>
               ) : (
-                <Text type="secondary">No attachment</Text>
+                <Text type="secondary">{t('courses.noAttachment')}</Text>
               )}
               {isArtistOrAdmin && selectedCourse?.artistId === user?.userId && (
                 <Upload
@@ -445,7 +447,7 @@ export default function Courses() {
                   style={{ marginTop: 8 }}
                 >
                   <Button icon={<UploadOutlined />} size="small" style={{ marginTop: 8 }}>
-                    {viewingLesson.hasAttachment ? 'Replace' : 'Upload'} PDF
+                    {viewingLesson.hasAttachment ? t('courses.replace') : t('courses.upload')} PDF
                   </Button>
                 </Upload>
               )}
@@ -458,7 +460,7 @@ export default function Courses() {
                   const idx = lessons.findIndex(l => l.id === viewingLesson.id);
                   if (idx > 0) handleViewLesson(lessons[idx - 1]);
                 }}>
-                ← Previous
+                ← {t('courses.previous')}
               </Button>
               <Text type="secondary">
                 {lessons.findIndex(l => l.id === viewingLesson.id) + 1} / {lessons.length}
@@ -468,7 +470,7 @@ export default function Courses() {
                   const idx = lessons.findIndex(l => l.id === viewingLesson.id);
                   if (idx < lessons.length - 1) handleViewLesson(lessons[idx + 1]);
                 }}>
-                Next →
+                {t('courses.next')} →
               </Button>
             </Row>
           </Space>
@@ -476,39 +478,39 @@ export default function Courses() {
       </Modal>
 
       {/* Add Lesson Modal */}
-      <Modal title="Add Lesson" open={lessonModalOpen}
-        onOk={handleLessonSubmit} onCancel={() => { setLessonModalOpen(false); setLessonFile(null); }} okText="Add" width={600}>
+      <Modal title={t('courses.addLesson')} open={lessonModalOpen}
+        onOk={handleLessonSubmit} onCancel={() => { setLessonModalOpen(false); setLessonFile(null); }} okText={t('common.add')} width={600}>
         <Form form={lessonForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Description"><Input.TextArea rows={2} /></Form.Item>
+          <Form.Item name="title" label={t('courses.title_field')} rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="description" label={t('courses.description_field')}><Input.TextArea rows={2} /></Form.Item>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="lessonOrder" label="Order"><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
+              <Form.Item name="lessonOrder" label={t('courses.order')}><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="duration" label="Duration (min)"><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
+              <Form.Item name="duration" label={t('courses.durationMin')}><InputNumber style={{ width: '100%' }} min={1} /></Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="level" label="Level">
-                <Select placeholder="Level" allowClear>
-                  <Select.Option value="BEGINNER">Beginner</Select.Option>
-                  <Select.Option value="INTERMEDIATE">Intermediate</Select.Option>
-                  <Select.Option value="ADVANCED">Advanced</Select.Option>
+              <Form.Item name="level" label={t('courses.level')}>
+                <Select placeholder={t('courses.level')} allowClear>
+                  <Select.Option value="BEGINNER">{t('courses.beginner')}</Select.Option>
+                  <Select.Option value="INTERMEDIATE">{t('courses.intermediate')}</Select.Option>
+                  <Select.Option value="ADVANCED">{t('courses.advanced')}</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="content" label="Content (optional)">
-            <Input.TextArea rows={5} placeholder="Write the lesson content here..." />
+          <Form.Item name="content" label={t('courses.contentOptional')}>
+            <Input.TextArea rows={5} placeholder={t('courses.writeContent')} />
           </Form.Item>
-          <Form.Item label="Attachment PDF (optional)">
+          <Form.Item label={t('courses.attachmentOptional')}>
             <Upload
               beforeUpload={(file) => { setLessonFile(file); return false; }}
               onRemove={() => setLessonFile(null)}
               maxCount={1}
               accept=".pdf,.doc,.docx,.pptx"
             >
-              <Button icon={<UploadOutlined />}>Select PDF</Button>
+              <Button icon={<UploadOutlined />}>{t('courses.selectPdf')}</Button>
             </Upload>
           </Form.Item>
         </Form>

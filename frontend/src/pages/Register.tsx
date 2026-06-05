@@ -4,6 +4,7 @@ import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 
@@ -12,6 +13,7 @@ export default function Register() {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t } = useTranslation();
 
   const calculateStrength = (password: string): number => {
     let score = 0;
@@ -24,7 +26,7 @@ export default function Register() {
 
   const onFinish = async (values: any) => {
     if (values.password !== values.confirmPassword) {
-      message.error('Passwords do not match');
+      message.error(t('auth.passwordsDontMatch'));
       return;
     }
     setLoading(true);
@@ -40,10 +42,10 @@ export default function Register() {
         postalCode: values.postalCode,
       });
       login(res.data);
-      message.success('Account created successfully!');
+      message.success(t('auth.accountCreated'));
       navigate('/');
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Registration failed');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally {
       setLoading(false);
     }
@@ -60,24 +62,24 @@ export default function Register() {
     }}>
       <Card style={{ width: 480, borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxHeight: '90vh', overflow: 'auto' }}>
         <Space direction="vertical" size="middle" style={{ width: '100%', textAlign: 'center' }}>
-          <Title level={3} style={{ margin: 0, color: '#2B3A67' }}>Create Account</Title>
+          <Title level={3} style={{ margin: 0, color: '#2B3A67' }}>{t('auth.createAccount')}</Title>
 
           <Form layout="vertical" onFinish={onFinish} size="large">
-            <Form.Item name="username" rules={[{ required: true, message: 'Username is required' }]}>
-              <Input prefix={<UserOutlined />} placeholder="Username" />
+            <Form.Item name="username" rules={[{ required: true, message: t('auth.required') }]}>
+              <Input prefix={<UserOutlined />} placeholder={t('auth.username')} />
             </Form.Item>
 
             <Form.Item name="email" rules={[
-              { required: true, message: 'Email is required' },
-              { type: 'email', message: 'Invalid email' }
+              { required: true, message: t('auth.required') },
+              { type: 'email', message: t('auth.invalidEmail') }
             ]}>
-              <Input prefix={<MailOutlined />} placeholder="Email" />
+              <Input prefix={<MailOutlined />} placeholder={t('auth.email')} />
             </Form.Item>
 
-            <Form.Item name="password" rules={[{ required: true, message: 'Password is required' }]}>
+            <Form.Item name="password" rules={[{ required: true, message: t('auth.required') }]}>
               <Input.Password
                 prefix={<LockOutlined />}
-                placeholder="Password"
+                placeholder={t('auth.password')}
                 onChange={(e) => setPasswordStrength(calculateStrength(e.target.value))}
               />
             </Form.Item>
@@ -89,45 +91,45 @@ export default function Register() {
               size="small"
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Min 8 chars, 1 uppercase, 1 digit, 1 special character
+              {t('auth.passwordStrength')}
             </Text>
 
-            <Form.Item name="confirmPassword" rules={[{ required: true, message: 'Confirm your password' }]}
+            <Form.Item name="confirmPassword" rules={[{ required: true, message: t('auth.confirmPassword') }]}
               style={{ marginTop: 12 }}>
-              <Input.Password prefix={<LockOutlined />} placeholder="Confirm password" />
+              <Input.Password prefix={<LockOutlined />} placeholder={t('auth.confirmPassword')} />
             </Form.Item>
 
-            <Form.Item name="role" rules={[{ required: true, message: 'Select a role' }]}>
-              <Select placeholder="Select role">
-                <Select.Option value="ARTIST">Artist</Select.Option>
-                <Select.Option value="VISITOR">Visitor</Select.Option>
+            <Form.Item name="role" rules={[{ required: true, message: t('auth.selectRole') }]}>
+              <Select placeholder={t('auth.role')}>
+                <Select.Option value="ARTIST">{t('auth.artist')}</Select.Option>
+                <Select.Option value="VISITOR">{t('auth.visitor')}</Select.Option>
               </Select>
             </Form.Item>
 
-            <Divider>Address (Optional)</Divider>
+            <Divider>{t('auth.addressOptional')}</Divider>
 
             <Form.Item name="street">
-              <Input placeholder="Street" />
+              <Input placeholder={t('profile.street')} />
             </Form.Item>
             <Form.Item name="city">
-              <Input placeholder="City" />
+              <Input placeholder={t('profile.city')} />
             </Form.Item>
             <Form.Item name="country">
-              <Input placeholder="Country" />
+              <Input placeholder={t('profile.country')} />
             </Form.Item>
             <Form.Item name="postalCode">
-              <Input placeholder="Postal code" />
+              <Input placeholder={t('profile.postalCode')} />
             </Form.Item>
 
             <Form.Item>
               <Button type="primary" htmlType="submit" block loading={loading}
                 style={{ background: '#2B3A67', borderColor: '#2B3A67', height: 44 }}>
-                Register
+                {t('auth.register')}
               </Button>
             </Form.Item>
           </Form>
 
-          <Link to="/login">Already have an account? Login</Link>
+          <Link to="/login">{t('auth.login')}</Link>
         </Space>
       </Card>
     </div>

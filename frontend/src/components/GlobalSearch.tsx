@@ -3,6 +3,7 @@ import { Input, Modal, List, Tag, Typography, Empty, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { searchApi, SearchResults } from '../api/search';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
@@ -12,6 +13,7 @@ export default function GlobalSearch() {
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const debounceRef = React.useRef<NodeJS.Timeout>();
 
@@ -67,13 +69,13 @@ export default function GlobalSearch() {
     <>
       <Input
         prefix={<SearchOutlined />}
-        placeholder="Search everything..."
+        placeholder={t('search.placeholder')}
         onClick={() => setOpen(true)}
         readOnly
         style={{ width: 250, cursor: 'pointer' }}
       />
       <Modal
-        title="Search"
+        title={t('search.title')}
         open={open}
         onCancel={() => { setOpen(false); setQuery(''); setResults(null); }}
         footer={null}
@@ -81,7 +83,7 @@ export default function GlobalSearch() {
       >
         <Input
           prefix={<SearchOutlined />}
-          placeholder="Search artworks, events, products, courses..."
+          placeholder={t('search.searchPlaceholder')}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           size="large"
@@ -90,7 +92,7 @@ export default function GlobalSearch() {
         />
         {loading && <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>}
         {!loading && results && allResults.length === 0 && (
-          <Empty description="No results found" />
+          <Empty description={t('search.noResults')} />
         )}
         {!loading && allResults.length > 0 && (
           <List

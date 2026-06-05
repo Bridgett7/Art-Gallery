@@ -4,12 +4,13 @@ import {
   Popconfirm, Tag, Card, Row, Col, Avatar, Input as AntInput
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, SearchOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { usersApi, UserData } from '../api/users';
 
 const { Title, Text } = Typography;
-const { Search } = AntInput;
 
 export default function UserManagement() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function UserManagement() {
       const res = await usersApi.getAll();
       setUsers(res.data);
       setFilteredUsers(res.data);
-    } catch { message.error('Failed to load users'); }
+    } catch { message.error(t('common.failed')); }
     finally { setLoading(false); }
   };
 
@@ -41,22 +42,12 @@ export default function UserManagement() {
         u.idNumber.toLowerCase().includes(s)
       );
     }
-    if (role) {
-      result = result.filter(u => u.role === role);
-    }
+    if (role) result = result.filter(u => u.role === role);
     setFilteredUsers(result);
   };
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
-    applyFilters(value, roleFilter);
-  };
-
-  const handleRoleFilter = (value: string | null) => {
-    setRoleFilter(value);
-    applyFilters(searchText, value);
-  };
-
+  const handleSearch = (value: string) => { setSearchText(value); applyFilters(value, roleFilter); };
+  const handleRoleFilter = (value: string | null) => { setRoleFilter(value); applyFilters(searchText, value); };
   const handleAdd = () => { setEditingUser(null); form.resetFields(); setModalOpen(true); };
 
   const handleEdit = (user: UserData) => {
@@ -68,9 +59,9 @@ export default function UserManagement() {
   const handleDelete = async (id: string) => {
     try {
       await usersApi.delete(id);
-      message.success('User deleted');
+      message.success(t('users.deleted'));
       loadUsers();
-    } catch (err: any) { message.error(err.response?.data?.error || 'Delete failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleSubmit = async () => {
@@ -80,10 +71,10 @@ export default function UserManagement() {
         const updateData: any = { username: values.username, email: values.email, role: values.role };
         if (values.password) updateData.password = values.password;
         await usersApi.update(editingUser.idNumber, updateData);
-        message.success('User updated');
+        message.success(t('users.updated'));
       } else {
         await usersApi.create(values);
-        message.success('User created');
+        message.success(t('users.created'));
       }
       setModalOpen(false);
       loadUsers();
@@ -103,30 +94,28 @@ export default function UserManagement() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>USER MANAGEMENT</Title>
-        <Text type="secondary">{filteredUsers.length} users</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('users.title')}</Title>
+        <Text type="secondary">{filteredUsers.length} {t('nav.users').toLowerCase()}</Text>
       </div>
 
-      {/* Filters */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
         <Col>
           <Space>
-            <Input prefix={<SearchOutlined />} placeholder="Search by name, email or ID..."
+            <Input prefix={<SearchOutlined />} placeholder={t('users.search')}
               value={searchText} onChange={(e) => handleSearch(e.target.value)} style={{ width: 300 }} />
-            <Select value={roleFilter} onChange={handleRoleFilter} placeholder="All Roles"
+            <Select value={roleFilter} onChange={handleRoleFilter} placeholder={t('users.allRoles')}
               allowClear style={{ width: 140 }}>
-              <Select.Option value="ADMIN">Admin</Select.Option>
-              <Select.Option value="ARTIST">Artist</Select.Option>
-              <Select.Option value="VISITOR">Visitor</Select.Option>
+              <Select.Option value="ADMIN">{t('users.admin')}</Select.Option>
+              <Select.Option value="ARTIST">{t('users.artist')}</Select.Option>
+              <Select.Option value="VISITOR">{t('users.visitor')}</Select.Option>
             </Select>
           </Space>
         </Col>
         <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Add User</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('users.addUser')}</Button>
         </Col>
       </Row>
 
-      {/* User Cards */}
       <Row gutter={[16, 16]}>
         {filteredUsers.map(u => (
           <Col xs={24} sm={12} lg={8} key={u.idNumber}>
@@ -149,9 +138,9 @@ export default function UserManagement() {
                 </Col>
                 <Col>
                   <Space direction="vertical" size={4}>
-                    <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(u)} block>Edit</Button>
-                    <Popconfirm title="Delete this user?" onConfirm={() => handleDelete(u.idNumber)}>
-                      <Button icon={<DeleteOutlined />} size="small" danger block>Delete</Button>
+                    <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(u)} block>{t('common.edit')}</Button>
+                    <Popconfirm title={t('users.deleteConfirm')} onConfirm={() => handleDelete(u.idNumber)}>
+                      <Button icon={<DeleteOutlined />} size="small" danger block>{t('common.delete')}</Button>
                     </Popconfirm>
                   </Space>
                 </Col>
@@ -163,32 +152,32 @@ export default function UserManagement() {
 
       {filteredUsers.length === 0 && !loading && (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <Text type="secondary">No users found</Text>
+          <Text type="secondary">{t('users.noUsers')}</Text>
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      <Modal title={editingUser ? 'Edit User' : 'Add User'} open={modalOpen}
-        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingUser ? 'Update' : 'Create'}>
+      <Modal title={editingUser ? t('users.editUser') : t('users.addUser')} open={modalOpen}
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)}
+        okText={editingUser ? t('common.update') : t('common.create')} cancelText={t('common.cancel')}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="idNumber" label="ID" rules={[{ required: !editingUser, message: 'ID is required' }]}>
-            <Input placeholder="Ex: CIN12345" disabled={!!editingUser} />
+          <Form.Item name="idNumber" label={t('users.id')} rules={[{ required: !editingUser, message: t('users.idRequired') }]}>
+            <Input placeholder={t('users.idPlaceholder')} disabled={!!editingUser} />
           </Form.Item>
-          <Form.Item name="username" label="Username" rules={[{ required: true }]}>
-            <Input placeholder="Username" />
+          <Form.Item name="username" label={t('auth.username')} rules={[{ required: true }]}>
+            <Input />
           </Form.Item>
-          <Form.Item name="email" label="Email" rules={[{ required: true }, { type: 'email', message: 'Invalid email' }]}>
+          <Form.Item name="email" label={t('auth.email')} rules={[{ required: true }, { type: 'email', message: t('auth.invalidEmail') }]}>
             <Input placeholder="email@example.com" />
           </Form.Item>
-          <Form.Item name="password" label={editingUser ? 'New Password (leave empty to keep)' : 'Password'}
+          <Form.Item name="password" label={editingUser ? t('users.passwordKeep') : t('auth.password')}
             rules={editingUser ? [] : [{ required: true }]}>
-            <Input.Password placeholder="Min. 8 characters" />
+            <Input.Password placeholder={t('users.minChars')} />
           </Form.Item>
-          <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-            <Select placeholder="Select role">
-              <Select.Option value="ADMIN">👑 Admin</Select.Option>
-              <Select.Option value="ARTIST">🎨 Artist</Select.Option>
-              <Select.Option value="VISITOR">👤 Visitor</Select.Option>
+          <Form.Item name="role" label={t('auth.role')} rules={[{ required: true }]}>
+            <Select placeholder={t('users.selectRole')}>
+              <Select.Option value="ADMIN">👑 {t('users.admin')}</Select.Option>
+              <Select.Option value="ARTIST">🎨 {t('users.artist')}</Select.Option>
+              <Select.Option value="VISITOR">👤 {t('users.visitor')}</Select.Option>
             </Select>
           </Form.Item>
         </Form>

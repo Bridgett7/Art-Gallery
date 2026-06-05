@@ -4,6 +4,7 @@ import {
   Input, Row, Col, Divider, List, Tabs, Pagination
 } from 'antd';
 import { DeleteOutlined, FilterOutlined, ClearOutlined, ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { ordersApi, OrderData, OrderItemData } from '../api/orders';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,6 +18,7 @@ const btnSuccess = { background: '#D5F5E3', borderColor: '#D5F5E3', color: '#1E8
 
 export default function Orders() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isAdmin = user?.role === 'ADMIN';
 
   const [myOrders, setMyOrders] = useState<OrderData[]>([]);
@@ -56,7 +58,7 @@ export default function Orders() {
         setAllOrders(allRes.data);
         setFilteredOrders(allRes.data);
       }
-    } catch { message.error('Failed to load orders'); }
+    } catch { message.error(t('common.failed')); }
     finally { setLoading(false); }
   };
 
@@ -67,25 +69,25 @@ export default function Orders() {
       const parts = (res.data.deliveryLocation || '').split(', ');
       setStreet(parts[0] || ''); setCity(parts[1] || '');
       setPostalCode(parts[2] || ''); setCountry(parts[3] || '');
-    } catch { message.error('Failed to load order'); }
+    } catch { message.error(t('common.failed')); }
   };
 
   const handlePlaceOrder = async () => {
     if (!selectedOrder) return;
     try {
       await ordersApi.updateStatus(selectedOrder.id, 'CONFIRMED');
-      message.success('Order placed!');
+      message.success(t('orders.orderPlaced'));
       handleViewOrder(selectedOrder.id); loadOrders();
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleCancelOrder = async () => {
     if (!selectedOrder) return;
     try {
       await ordersApi.updateStatus(selectedOrder.id, 'CANCELLED');
-      message.success('Order cancelled');
+      message.success(t('orders.orderCancelled'));
       handleViewOrder(selectedOrder.id); loadOrders();
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleDeleteOrder = async (id?: number) => {
@@ -93,18 +95,18 @@ export default function Orders() {
     if (!orderId) return;
     try {
       await ordersApi.delete(orderId);
-      message.success('Order deleted');
+      message.success(t('orders.orderDeleted'));
       setSelectedOrder(null); loadOrders();
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleRemoveItem = async (itemId: number) => {
     if (!selectedOrder) return;
     try {
       await ordersApi.removeItem(selectedOrder.id, itemId);
-      message.success('Item removed');
+      message.success(t('orders.itemRemoved'));
       handleViewOrder(selectedOrder.id);
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleSaveAddress = async () => {
@@ -112,17 +114,17 @@ export default function Orders() {
     const fullAddress = [street, city, postalCode, country].filter(Boolean).join(', ');
     try {
       await ordersApi.updateAddress(selectedOrder.id, fullAddress);
-      message.success('Address updated');
+      message.success(t('orders.addressUpdated'));
       setAddressEditing(false); handleViewOrder(selectedOrder.id);
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
       await ordersApi.updateStatus(orderId, newStatus);
-      message.success('Status updated'); loadOrders();
+      message.success(t('orders.statusUpdated')); loadOrders();
       if (selectedOrder?.id === orderId) handleViewOrder(orderId);
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   // Admin filters
@@ -151,13 +153,24 @@ export default function Orders() {
     }
   };
 
+  const translateStatus = (status: string) => {
+    switch (status) {
+      case 'PENDING': return t('status.pending');
+      case 'CONFIRMED': return t('status.confirmed');
+      case 'SHIPPED': return t('status.shipped');
+      case 'DELIVERED': return t('status.delivered');
+      case 'CANCELLED': return t('status.cancelled');
+      default: return status;
+    }
+  };
+
   const getTrackingMessage = (order: OrderData) => {
     switch (order.status) {
-      case 'PENDING': return 'Awaiting confirmation';
-      case 'CONFIRMED': return '📦 Your order is confirmed and being prepared';
-      case 'SHIPPED': return '🚚 Your order is on its way!';
-      case 'DELIVERED': return '✅ Order delivered';
-      case 'CANCELLED': return '❌ Order cancelled';
+      case 'PENDING': return t('orders.awaitingConfirmation');
+      case 'CONFIRMED': return t('orders.beingPrepared');
+      case 'SHIPPED': return t('orders.onItsWay');
+      case 'DELIVERED': return t('orders.delivered');
+      case 'CANCELLED': return t('orders.cancelledMsg');
       default: return '';
     }
   };
@@ -173,21 +186,21 @@ export default function Orders() {
         <Row gutter={24}>
           <Col span={15}>
             <Button icon={<ArrowLeftOutlined />} onClick={() => setSelectedOrder(null)} style={{ ...btnLight, marginBottom: 16 }}>
-              Back to Orders
+              {t('orders.backToOrders')}
             </Button>
 
             {/* Admin: status change */}
             {isAdmin && (
               <Card style={{ marginBottom: 16 }}>
                 <Row align="middle" justify="space-between">
-                  <Text strong>Update Order Status</Text>
+                  <Text strong>{t('orders.updateStatus')}</Text>
                   <Select value={selectedOrder.status} style={{ width: 160 }}
                     onChange={(v) => handleStatusChange(selectedOrder.id, v)}>
-                    <Select.Option value="PENDING">Pending</Select.Option>
-                    <Select.Option value="CONFIRMED">Confirmed</Select.Option>
-                    <Select.Option value="SHIPPED">Shipped</Select.Option>
-                    <Select.Option value="DELIVERED">Delivered</Select.Option>
-                    <Select.Option value="CANCELLED">Cancelled</Select.Option>
+                    <Select.Option value="PENDING">{t('orders.pending')}</Select.Option>
+                    <Select.Option value="CONFIRMED">{t('orders.confirmed')}</Select.Option>
+                    <Select.Option value="SHIPPED">{t('orders.shipped')}</Select.Option>
+                    <Select.Option value="DELIVERED">{t('orders.delivered')}</Select.Option>
+                    <Select.Option value="CANCELLED">{t('orders.cancelledMsg')}</Select.Option>
                   </Select>
                 </Row>
               </Card>
@@ -200,7 +213,7 @@ export default function Orders() {
             <Card title={
               <Space>
                 <Text strong style={{ fontSize: 18 }}>Order #{selectedOrder.id}</Text>
-                <Tag color={statusColor(selectedOrder.status)}>{selectedOrder.status}</Tag>
+                <Tag color={statusColor(selectedOrder.status)}>{translateStatus(selectedOrder.status)}</Tag>
               </Space>
             }>
               {selectedOrder.user && (
@@ -211,7 +224,7 @@ export default function Orders() {
               )}
               <List
                 dataSource={selectedOrder.items || []}
-                locale={{ emptyText: 'No items in this order' }}
+                locale={{ emptyText: t('orders.noItems') }}
                 renderItem={(item: OrderItemData) => (
                   <List.Item
                     actions={selectedOrder.status === 'PENDING' ? [
@@ -228,55 +241,55 @@ export default function Orders() {
             </Card>
           </Col>
           <Col span={9}>
-            <Card title="Order Summary">
+            <Card title={t('orders.orderSummary')}>
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                <Row justify="space-between"><Text>Subtotal:</Text><Text>{subtotal.toFixed(2)} DT</Text></Row>
-                <Row justify="space-between"><Text>Commission (5%):</Text><Text>{commission.toFixed(2)} DT</Text></Row>
+                <Row justify="space-between"><Text>{t('orders.subtotal')}:</Text><Text>{subtotal.toFixed(2)} DT</Text></Row>
+                <Row justify="space-between"><Text>{t('orders.commission')}:</Text><Text>{commission.toFixed(2)} DT</Text></Row>
                 <Divider style={{ margin: '8px 0' }} />
                 <Row justify="space-between">
-                  <Text strong style={{ fontSize: 16 }}>Total:</Text>
+                  <Text strong style={{ fontSize: 16 }}>{t('orders.total')}:</Text>
                   <Text strong style={{ fontSize: 16, color: '#4E73DF' }}>{total.toFixed(2)} DT</Text>
                 </Row>
                 <Divider />
-                <Text strong>Delivery Address</Text>
+                <Text strong>{t('orders.deliveryAddress')}</Text>
                 {addressEditing ? (
                   <div style={{ marginTop: 8 }}>
                     <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                      <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street" />
+                      <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder={t('orders.street')} />
                       <Row gutter={8}>
-                        <Col span={14}><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" /></Col>
-                        <Col span={10}><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Postal Code" /></Col>
+                        <Col span={14}><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('orders.city')} /></Col>
+                        <Col span={10}><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder={t('orders.postalCode')} /></Col>
                       </Row>
-                      <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" />
+                      <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder={t('orders.country')} />
                       <Space>
-                        <Button size="small" type="primary" onClick={handleSaveAddress}>Confirm Address</Button>
-                        <Button size="small" onClick={() => setAddressEditing(false)}>Cancel</Button>
+                        <Button size="small" type="primary" onClick={handleSaveAddress}>{t('orders.confirmAddress')}</Button>
+                        <Button size="small" onClick={() => setAddressEditing(false)}>{t('common.cancel')}</Button>
                       </Space>
                     </Space>
                   </div>
                 ) : (
                   <div style={{ marginTop: 8 }}>
-                    <Text>{selectedOrder.deliveryLocation || 'Not set'}</Text>
+                    <Text>{selectedOrder.deliveryLocation || t('orders.notSet')}</Text>
                     {selectedOrder.status === 'PENDING' && (
                       <Button size="small" style={{ marginLeft: 8 }} onClick={() => {
                         const parts = (selectedOrder.deliveryLocation || '').split(', ');
                         setStreet(parts[0] || ''); setCity(parts[1] || '');
                         setPostalCode(parts[2] || ''); setCountry(parts[3] || '');
                         setAddressEditing(true);
-                      }}>Change Address</Button>
+                      }}>{t('orders.changeAddress')}</Button>
                     )}
                   </div>
                 )}
                 <Divider />
-                <Text strong>Promo Code</Text>
+                <Text strong>{t('orders.promoCode')}</Text>
                 <Row gutter={8}>
-                  <Col flex="auto"><Input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="No promo code" /></Col>
-                  <Col><Button onClick={() => message.info('Coming soon')}>Apply</Button></Col>
+                  <Col flex="auto"><Input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder={t('orders.noPromo')} /></Col>
+                  <Col><Button onClick={() => message.info(t('orders.comingSoon'))}>{t('orders.apply')}</Button></Col>
                 </Row>
                 <Divider />
                 <Button block style={btnSuccess} onClick={handlePlaceOrder}
                   disabled={selectedOrder.status !== 'PENDING'}>
-                  Place Order
+                  {t('orders.placeOrder')}
                 </Button>
                 {selectedOrder.status !== 'PENDING' && selectedOrder.status !== 'CANCELLED' && (
                   <Button block type="default" icon={<DownloadOutlined />}
@@ -297,24 +310,24 @@ export default function Orders() {
                           document.body.removeChild(link);
                           window.URL.revokeObjectURL(blobUrl);
                         })
-                        .catch(() => message.error('Invoice not available yet'));
+                        .catch(() => message.error(t('orders.invoiceNotAvailable')));
                     }}>
-                    Download Invoice
+                    {t('orders.downloadInvoice')}
                   </Button>
                 )}
-                <Button block style={btnLight} onClick={() => message.info('Add products from Marketplace')}
+                <Button block style={btnLight} onClick={() => message.info(t('orders.addFromMarketplace'))}
                   disabled={selectedOrder.status !== 'PENDING'}>
-                  Add Product
+                  {t('orders.addProduct')}
                 </Button>
-                <Popconfirm title="Cancel this order?" onConfirm={handleCancelOrder}
+                <Popconfirm title={t('orders.confirmCancel')} onConfirm={handleCancelOrder}
                   disabled={selectedOrder.status === 'DELIVERED' || selectedOrder.status === 'CANCELLED'}>
                   <Button block style={btnWarning}
                     disabled={selectedOrder.status === 'DELIVERED' || selectedOrder.status === 'CANCELLED'}>
-                    Cancel Order
+                    {t('orders.cancelOrder')}
                   </Button>
                 </Popconfirm>
-                <Popconfirm title="Delete this order permanently?" onConfirm={() => handleDeleteOrder()}>
-                  <Button block style={btnDanger}>Delete Order</Button>
+                <Popconfirm title={t('orders.confirmDelete')} onConfirm={() => handleDeleteOrder()}>
+                  <Button block style={btnDanger}>{t('orders.deleteOrder')}</Button>
                 </Popconfirm>
               </Space>
             </Card>
@@ -332,7 +345,7 @@ export default function Orders() {
           <Space direction="vertical" size={4}>
             <Space size={12}>
               <Text strong style={{ fontSize: 18 }}>Order #{order.id}</Text>
-              <Tag color={statusColor(order.status)}>{order.status}</Tag>
+              <Tag color={statusColor(order.status)}>{translateStatus(order.status)}</Tag>
             </Space>
             {showUser && <Text strong>User: {order.user?.username}</Text>}
             <Text type="secondary">Date: {order.orderDate}</Text>
@@ -342,9 +355,9 @@ export default function Orders() {
         </Col>
         <Col>
           <Space direction="vertical" size={8}>
-            <Button style={btnPrimary} onClick={() => handleViewOrder(order.id)} block>Manage</Button>
-            <Popconfirm title="Delete?" onConfirm={() => handleDeleteOrder(order.id)}>
-              <Button style={btnDanger} block>Delete</Button>
+            <Button style={btnPrimary} onClick={() => handleViewOrder(order.id)} block>{t('orders.manage')}</Button>
+            <Popconfirm title={t('common.deleteConfirm')} onConfirm={() => handleDeleteOrder(order.id)}>
+              <Button style={btnDanger} block>{t('orders.delete')}</Button>
             </Popconfirm>
           </Space>
         </Col>
@@ -356,7 +369,7 @@ export default function Orders() {
   const tabItems = [
     ...(isAdmin ? [{
       key: 'all',
-      label: 'All Orders',
+      label: t('orders.allOrders'),
       children: (
         <div>
           <Text type="secondary" style={{ display: 'block', textAlign: 'right', marginBottom: 12 }}>
@@ -365,31 +378,31 @@ export default function Orders() {
           <Card style={{ marginBottom: 20, borderRadius: 12 }}>
             <Row gutter={16} align="bottom">
               <Col>
-                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>Status</Text></div>
-                <Select value={statusFilter} onChange={setStatusFilter} placeholder="All Statuses" allowClear style={{ width: 150 }}>
-                  <Select.Option value="PENDING">Pending</Select.Option>
-                  <Select.Option value="CONFIRMED">Confirmed</Select.Option>
-                  <Select.Option value="SHIPPED">Shipped</Select.Option>
-                  <Select.Option value="DELIVERED">Delivered</Select.Option>
-                  <Select.Option value="CANCELLED">Cancelled</Select.Option>
+                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>{t('orders.status')}</Text></div>
+                <Select value={statusFilter} onChange={setStatusFilter} placeholder={t('orders.allStatuses')} allowClear style={{ width: 150 }}>
+                  <Select.Option value="PENDING">{t('orders.pending')}</Select.Option>
+                  <Select.Option value="CONFIRMED">{t('orders.confirmed')}</Select.Option>
+                  <Select.Option value="SHIPPED">{t('orders.shipped')}</Select.Option>
+                  <Select.Option value="DELIVERED">{t('orders.delivered')}</Select.Option>
+                  <Select.Option value="CANCELLED">{t('orders.cancelledMsg')}</Select.Option>
                 </Select>
               </Col>
               <Col>
-                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>Search User</Text></div>
-                <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Username" style={{ width: 180 }} />
+                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>{t('orders.searchUser')}</Text></div>
+                <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder={t('orders.username')} style={{ width: 180 }} />
               </Col>
               <Col>
-                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>From Date</Text></div>
+                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>{t('orders.fromDate')}</Text></div>
                 <DatePicker value={dateFrom} onChange={setDateFrom} style={{ width: 150 }} />
               </Col>
               <Col>
-                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>To Date</Text></div>
+                <div style={{ marginBottom: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>{t('orders.toDate')}</Text></div>
                 <DatePicker value={dateTo} onChange={setDateTo} style={{ width: 150 }} />
               </Col>
               <Col>
                 <Space>
-                  <Button style={btnPrimary} icon={<FilterOutlined />} onClick={handleApplyFilters}>Apply</Button>
-                  <Button style={btnLight} icon={<ClearOutlined />} onClick={handleClearFilters}>Clear</Button>
+                  <Button style={btnPrimary} icon={<FilterOutlined />} onClick={handleApplyFilters}>{t('orders.apply')}</Button>
+                  <Button style={btnLight} icon={<ClearOutlined />} onClick={handleClearFilters}>{t('orders.clear')}</Button>
                 </Space>
               </Col>
             </Row>
@@ -401,13 +414,13 @@ export default function Orders() {
                 onChange={(p) => setPageAll(p)} showSizeChanger={false} />
             </Row>
           )}
-          {filteredOrders.length === 0 && <Card><Text type="secondary">No orders found</Text></Card>}
+          {filteredOrders.length === 0 && <Card><Text type="secondary">{t('orders.noOrdersFound')}</Text></Card>}
         </div>
       ),
     }] : []),
     {
       key: 'my',
-      label: 'My Orders',
+      label: t('orders.myOrders'),
       children: (
         <div>
           <Text type="secondary" style={{ display: 'block', textAlign: 'right', marginBottom: 12 }}>
@@ -420,7 +433,7 @@ export default function Orders() {
                 onChange={(p) => setPageMy(p)} showSizeChanger={false} />
             </Row>
           )}
-          {myOrders.length === 0 && <Card><Text type="secondary">No orders yet</Text></Card>}
+          {myOrders.length === 0 && <Card><Text type="secondary">{t('orders.noOrders')}</Text></Card>}
         </div>
       ),
     },
@@ -429,8 +442,8 @@ export default function Orders() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>ORDERS</Title>
-        <Text type="secondary">View and manage orders</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('orders.title')}</Title>
+        <Text type="secondary">{t('orders.subtitle')}</Text>
       </div>
       <Tabs items={tabItems} centered />
     </div>

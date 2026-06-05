@@ -1,6 +1,9 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, Spin } from 'antd';
+import { useTranslation } from 'react-i18next';
+import frFR from 'antd/locale/fr_FR';
+import enUS from 'antd/locale/en_US';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login';
@@ -72,8 +75,12 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const { i18n } = useTranslation();
+  const antLocale = i18n.language === 'fr' ? frFR : enUS;
+
   return (
     <ConfigProvider
+      locale={antLocale}
       theme={{
         token: {
           colorPrimary: '#2B3A67',

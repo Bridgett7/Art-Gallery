@@ -15,8 +15,10 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { useNotifications } from '../hooks/useNotifications';
 import GlobalSearch from '../components/GlobalSearch';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import ChatWidget from '../components/ChatWidget';
 
 const { Sider, Content, Header } = Layout;
@@ -29,6 +31,7 @@ export default function MainLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const { t } = useTranslation();
 
   useEffect(() => {
     // Fetch active order item count
@@ -44,18 +47,18 @@ export default function MainLayout() {
   };
 
   const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
-    { key: '/artworks', icon: <PictureOutlined />, label: 'Artworks' },
-    { key: '/events', icon: <CalendarOutlined />, label: 'Exhibitions' },
-    { key: '/courses', icon: <BookOutlined />, label: 'Courses' },
-    { key: '/planning', icon: <ScheduleOutlined />, label: 'Planning' },
-    { key: '/marketplace', icon: <ShopOutlined />, label: 'Marketplace' },
-    { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Orders' },
+    { key: '/', icon: <DashboardOutlined />, label: t('nav.dashboard') },
+    { key: '/artworks', icon: <PictureOutlined />, label: t('nav.artworks') },
+    { key: '/events', icon: <CalendarOutlined />, label: t('nav.exhibitions') },
+    { key: '/courses', icon: <BookOutlined />, label: t('nav.courses') },
+    { key: '/planning', icon: <ScheduleOutlined />, label: t('nav.planning') },
+    { key: '/marketplace', icon: <ShopOutlined />, label: t('nav.marketplace') },
+    { key: '/orders', icon: <ShoppingCartOutlined />, label: t('nav.orders') },
     ...(user?.role === 'ADMIN' ? [
-      { key: '/users', icon: <TeamOutlined />, label: 'Users' },
+      { key: '/users', icon: <TeamOutlined />, label: t('nav.users') },
     ] : []),
-    { key: '/notifications', icon: <BellOutlined />, label: unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications' },
-    { key: '/profile', icon: <UserOutlined />, label: 'Account' },
+    { key: '/notifications', icon: <BellOutlined />, label: unreadCount > 0 ? `${t('nav.notifications')} (${unreadCount})` : t('nav.notifications') },
+    { key: '/profile', icon: <UserOutlined />, label: t('nav.account') },
   ];
 
   return (
@@ -100,7 +103,7 @@ export default function MainLayout() {
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px' }}>
             {!collapsed && (
               <div style={{ marginBottom: 8, padding: '0 8px' }}>
-                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Logged in as</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{t('nav.loggedAs')}</Text>
                 <br />
                 <Text strong style={{ color: 'white', fontSize: 13 }}>{user?.username}</Text>
               </div>
@@ -112,7 +115,7 @@ export default function MainLayout() {
               block
               style={{ color: 'rgba(255,255,255,0.85)', textAlign: 'left', height: 40 }}
             >
-              {!collapsed && 'Logout'}
+              {!collapsed && t('nav.logout')}
             </Button>
           </div>
         </div>
@@ -122,6 +125,7 @@ export default function MainLayout() {
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <GlobalSearch />
           <Space size={16}>
+            <LanguageSwitcher />
             <Badge count={cartCount} size="small">
               <Button type="text" icon={<ShoppingCartOutlined />} onClick={() => navigate('/orders')} />
             </Badge>

@@ -3,6 +3,7 @@ import { Form, Input, Button, Card, Typography, message, Space, Steps } from 'an
 import { MailOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 
@@ -11,16 +12,17 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSendCode = async (values: { email: string }) => {
     setLoading(true);
     try {
       await authApi.forgotPassword(values.email);
       setEmail(values.email);
-      message.success('Reset code sent to your email');
+      message.success(t('auth.codeSent'));
       setStep(1);
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Failed to send reset code');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally { setLoading(false); }
   };
 
@@ -28,10 +30,10 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       await authApi.resetPassword(values.token, values.newPassword);
-      message.success('Password reset successfully!');
+      message.success(t('auth.passwordResetSuccess'));
       navigate('/login');
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Reset failed');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally { setLoading(false); }
   };
 
@@ -46,9 +48,9 @@ export default function ForgotPassword() {
       <Card style={{ width: 440, borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
         <Space direction="vertical" size="large" style={{ width: '100%', textAlign: 'center' }}>
           <div>
-            <Title level={3} style={{ margin: 0, color: '#2B3A67' }}>Reset Password</Title>
+            <Title level={3} style={{ margin: 0, color: '#2B3A67' }}>{t('auth.resetPassword')}</Title>
             <Text type="secondary">
-              {step === 0 ? 'Enter your email to receive a reset code' : 'Enter the code and your new password'}
+              {step === 0 ? t('auth.enterEmail') : t('auth.enterCode')}
             </Text>
           </div>
 
@@ -59,13 +61,13 @@ export default function ForgotPassword() {
 
           {step === 0 ? (
             <Form layout="vertical" onFinish={handleSendCode} size="large">
-              <Form.Item name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email' }]}>
-                <Input prefix={<MailOutlined />} placeholder="Your email address" />
+              <Form.Item name="email" rules={[{ required: true, type: 'email', message: t('auth.invalidEmail') }]}>
+                <Input prefix={<MailOutlined />} placeholder={t('auth.email')} />
               </Form.Item>
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={loading}
                   style={{ background: '#2B3A67', borderColor: '#2B3A67', height: 44 }}>
-                  Send Reset Code
+                  {t('auth.sendCode')}
                 </Button>
               </Form.Item>
             </Form>
@@ -74,35 +76,35 @@ export default function ForgotPassword() {
               <Form.Item name="token" rules={[{ required: true, message: 'Enter the reset code' }]}>
                 <Input prefix={<SafetyOutlined />} placeholder="Reset code (6 characters)" maxLength={6} />
               </Form.Item>
-              <Form.Item name="newPassword" rules={[{ required: true, min: 8, message: 'Min 8 characters' }]}>
-                <Input.Password prefix={<LockOutlined />} placeholder="New password" />
+              <Form.Item name="newPassword" rules={[{ required: true, min: 8, message: t('auth.min8chars') }]}>
+                <Input.Password prefix={<LockOutlined />} placeholder={t('auth.newPassword')} />
               </Form.Item>
               <Form.Item
                 name="confirmPassword"
                 dependencies={['newPassword']}
                 rules={[
-                  { required: true, message: 'Confirm your password' },
+                  { required: true, message: t('auth.confirmPassword') },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
-                      return Promise.reject(new Error('Passwords do not match'));
+                      return Promise.reject(new Error(t('auth.passwordsDontMatch')));
                     },
                   }),
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="Confirm new password" />
+                <Input.Password prefix={<LockOutlined />} placeholder={t('auth.confirmPassword')} />
               </Form.Item>
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={loading}
                   style={{ background: '#2B3A67', borderColor: '#2B3A67', height: 44 }}>
-                  Reset Password
+                  {t('auth.resetPassword')}
                 </Button>
               </Form.Item>
-              <Button type="link" onClick={() => setStep(0)}>← Back to email</Button>
+              <Button type="link" onClick={() => setStep(0)}>{t('auth.backToEmail')}</Button>
             </Form>
           )}
 
-          <Link to="/login">Back to Login</Link>
+          <Link to="/login">{t('auth.login')}</Link>
         </Space>
       </Card>
     </div>

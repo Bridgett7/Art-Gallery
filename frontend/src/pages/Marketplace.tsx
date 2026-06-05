@@ -7,12 +7,14 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCar
 import { productsApi, ProductData } from '../api/products';
 import { ordersApi } from '../api/orders';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
 
 export default function Marketplace() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [allProducts, setAllProducts] = useState<ProductData[]>([]);
   const [myProducts, setMyProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export default function Marketplace() {
       const res = await productsApi.getAll();
       setAllProducts(res.data);
       if (isArtist) setMyProducts(res.data);
-    } catch { message.error('Failed to load products'); }
+    } catch { message.error(t('common.failed')); }
     finally { setLoading(false); }
   };
 
@@ -69,7 +71,7 @@ export default function Marketplace() {
 
   const handleDelete = async (id: number) => {
     await productsApi.delete(id);
-    message.success('Product deleted');
+    message.success(t('marketplace.deleted'));
     loadProducts();
   };
 
@@ -80,21 +82,21 @@ export default function Marketplace() {
       if (editingProduct) {
         await productsApi.update(editingProduct.id, values);
         productId = editingProduct.id;
-        message.success('Product updated');
+        message.success(t('marketplace.updated'));
       } else {
         const res = await productsApi.create(values);
         productId = res.data.id;
-        message.success('Product created');
+        message.success(t('marketplace.created'));
       }
       if (imageFile) {
         await productsApi.uploadImage(productId, imageFile);
-        message.success('Image uploaded');
+        message.success(t('marketplace.imageUploaded'));
       }
       setModalOpen(false);
       setImageFile(null);
       setImageVersion(Date.now());
       loadProducts();
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const handleAddToCart = async (product: ProductData) => {
@@ -108,8 +110,8 @@ export default function Marketplace() {
         orderId = newOrder.data.id;
       }
       await ordersApi.addItem(orderId, product.id, 1);
-      message.success(`${product.name} added to cart`);
-    } catch (err: any) { message.error(err.response?.data?.error || 'Failed to add to cart'); }
+      message.success(`${product.name} ${t('marketplace.addedToCart')}`);
+    } catch (err: any) { message.error(err.response?.data?.error || t('common.failed')); }
   };
 
   const renderProductCard = (product: ProductData, isOwner: boolean) => (
@@ -139,23 +141,23 @@ export default function Marketplace() {
         actions={[
           ...(isOwner ? [
             <EditOutlined key="edit" onClick={() => handleEdit(product)} />,
-            <Popconfirm key="del" title="Delete?" onConfirm={() => handleDelete(product.id)}>
+            <Popconfirm key="del" title={t('common.deleteConfirm')} onConfirm={() => handleDelete(product.id)}>
               <DeleteOutlined />
             </Popconfirm>,
           ] : []),
           <Button key="cart" type="link" icon={<ShoppingCartOutlined />} onClick={() => handleAddToCart(product)}>
-            Add to Cart
+            {t('marketplace.addToCart')}
           </Button>,
         ]}
       >
-        <Meta title={product.name} description={product.description || 'No description'} />
+        <Meta title={product.name} description={product.description || t('common.noDescription')} />
         <div style={{ marginTop: 12 }}>
           <Row justify="space-between">
             <Text strong style={{ fontSize: 16, color: '#2B3A67' }}>
               {product.price != null ? `${product.price} DT` : 'N/A'}
             </Text>
             <Tag color={product.stock && product.stock > 0 ? 'green' : 'red'}>
-              {product.stock && product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+              {product.stock && product.stock > 0 ? `${product.stock} ${t('marketplace.inStock')}` : t('marketplace.outOfStock')}
             </Tag>
           </Row>
         </div>
@@ -166,10 +168,10 @@ export default function Marketplace() {
   const tabItems = isArtist ? [
     {
       key: 'all',
-      label: 'All Products',
+      label: t('marketplace.allProducts'),
       children: (
         <div>
-          <Input prefix={<SearchOutlined />} placeholder="Search a product..." value={searchAll}
+          <Input prefix={<SearchOutlined />} placeholder={t('marketplace.search')} value={searchAll}
             onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300, marginBottom: 16 }} />
           <Row gutter={[20, 20]}>
             {allProducts.slice((pageAll - 1) * pageSize, pageAll * pageSize).map(p => renderProductCard(p, user?.role === 'ADMIN'))}
@@ -185,14 +187,14 @@ export default function Marketplace() {
     },
     {
       key: 'my',
-      label: 'My Products',
+      label: t('marketplace.myProducts'),
       children: (
         <div>
           <Row justify="space-between" style={{ marginBottom: 16 }}>
-            <Input prefix={<SearchOutlined />} placeholder="Search in my products..." value={searchMy}
+            <Input prefix={<SearchOutlined />} placeholder={t('marketplace.searchMy')} value={searchMy}
               onChange={(e) => handleSearchMy(e.target.value)} style={{ width: 300 }} />
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              Add New Product
+              {t('marketplace.addProduct')}
             </Button>
           </Row>
           <Row gutter={[20, 20]}>
@@ -212,8 +214,8 @@ export default function Marketplace() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>MARKETPLACE</Title>
-        <Text type="secondary">Browse and discover artworks from our artists</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('marketplace.title')}</Title>
+        <Text type="secondary">{t('marketplace.subtitle')}</Text>
       </div>
 
       {isArtist ? (
@@ -221,7 +223,7 @@ export default function Marketplace() {
       ) : (
         <div>
           <Row justify="space-between" style={{ marginBottom: 16 }}>
-            <Input prefix={<SearchOutlined />} placeholder="Search a product..." value={searchAll}
+            <Input prefix={<SearchOutlined />} placeholder={t('marketplace.search')} value={searchAll}
               onChange={(e) => handleSearchAll(e.target.value)} style={{ width: 300 }} />
           </Row>
           <Row gutter={[20, 20]}>
@@ -238,28 +240,28 @@ export default function Marketplace() {
 
       {allProducts.length === 0 && !loading && (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <Text type="secondary">No products found</Text>
+          <Text type="secondary">{t('marketplace.noProducts')}</Text>
         </div>
       )}
 
-      <Modal title={editingProduct ? 'Edit Product' : 'Add New Product'} open={modalOpen}
-        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingProduct ? 'Update' : 'Create'}>
+      <Modal title={editingProduct ? t('marketplace.editProduct') : t('marketplace.addProduct')} open={modalOpen}
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingProduct ? t('common.update') : t('common.create')}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="name" label="Product Name" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="name" label={t('marketplace.productName')} rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="description" label={t('marketplace.description')}><Input.TextArea rows={3} /></Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="price" label="Price (DT)" rules={[{ required: true }]}>
+              <Form.Item name="price" label={t('marketplace.price')} rules={[{ required: true }]}>
                 <InputNumber style={{ width: '100%' }} min={0} step={0.5} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="stock" label="Stock">
+              <Form.Item name="stock" label={t('marketplace.stock')}>
                 <InputNumber style={{ width: '100%' }} min={0} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Product Image">
+          <Form.Item label={t('marketplace.productImage')}>
             <Upload
               beforeUpload={(file) => { setImageFile(file); return false; }}
               maxCount={1}
@@ -267,7 +269,7 @@ export default function Marketplace() {
               listType="picture"
               onRemove={() => setImageFile(null)}
             >
-              <Button icon={<UploadOutlined />}>Select Image</Button>
+              <Button icon={<UploadOutlined />}>{t('marketplace.selectImage')}</Button>
             </Upload>
           </Form.Item>
         </Form>
@@ -292,7 +294,7 @@ export default function Marketplace() {
                 <Title level={4} style={{ margin: 0, color: '#2B3A67' }}>{previewImage.name}</Title>
                 {previewImage.description && (
                   <div>
-                    <Text strong style={{ display: 'block', marginBottom: 4 }}>Description</Text>
+                    <Text strong style={{ display: 'block', marginBottom: 4 }}>{t('marketplace.description')}</Text>
                     <Text type="secondary">{previewImage.description}</Text>
                   </div>
                 )}
@@ -301,7 +303,7 @@ export default function Marketplace() {
                 )}
                 {previewImage.stock != null && (
                   <Tag color={previewImage.stock > 0 ? 'green' : 'red'}>
-                    {previewImage.stock > 0 ? `${previewImage.stock} in stock` : 'Out of stock'}
+                    {previewImage.stock > 0 ? `${previewImage.stock} ${t('marketplace.inStock')}` : t('marketplace.outOfStock')}
                   </Tag>
                 )}
               </Space>

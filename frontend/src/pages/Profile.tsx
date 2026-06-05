@@ -2,12 +2,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Card, Form, Input, Button, Typography, Tabs, message, Avatar, Row, Col, Upload } from 'antd';
 import { UserOutlined, CameraOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import api from '../api/axios';
 
 const { Title, Text } = Typography;
 
 export default function Profile() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [addressForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -48,9 +50,9 @@ export default function Profile() {
     try {
       const values = form.getFieldsValue(['username', 'email']);
       await api.put('/users/profile', values);
-      message.success('Profile updated');
+      message.success(t('profile.profileUpdated'));
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Update failed');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally {
       setLoading(false);
     }
@@ -59,11 +61,11 @@ export default function Profile() {
   const handleChangePassword = async () => {
     const values = form.getFieldsValue(['currentPassword', 'newPassword', 'confirmPassword']);
     if (!values.currentPassword || !values.newPassword) {
-      message.error('Fill in all password fields');
+      message.error(t('profile.fillAllFields'));
       return;
     }
     if (values.newPassword !== values.confirmPassword) {
-      message.error('Passwords do not match');
+      message.error(t('auth.passwordsDontMatch'));
       return;
     }
     setLoading(true);
@@ -72,10 +74,10 @@ export default function Profile() {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       });
-      message.success('Password changed');
+      message.success(t('profile.passwordChanged'));
       form.setFieldsValue({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Password change failed');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally {
       setLoading(false);
     }
@@ -85,9 +87,9 @@ export default function Profile() {
     setLoading(true);
     try {
       await api.put('/users/address', values);
-      message.success('Address updated');
+      message.success(t('profile.addressUpdated'));
     } catch (err: any) {
-      message.error(err.response?.data?.error || 'Update failed');
+      message.error(err.response?.data?.error || t('common.failed'));
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export default function Profile() {
   const tabItems = [
     {
       key: 'info',
-      label: 'Personal Information',
+      label: t('profile.personalInfo'),
       children: (
         <Row gutter={40} align="top">
           <Col span={12} style={{ textAlign: 'center', paddingTop: 20 }}>
@@ -109,8 +111,8 @@ export default function Profile() {
                   const res = await api.post('/users/profile-picture', formData);
                   setPicVersion(Date.now());
                   setProfilePicture(res.data.profilePicture + '?v=' + Date.now());
-                  message.success('Profile picture updated');
-                } catch { message.error('Upload failed'); }
+                  message.success(t('profile.pictureUpdated'));
+                } catch { message.error(t('profile.uploadFailed')); }
                 return false;
               }}
               accept="image/*"
@@ -132,22 +134,22 @@ export default function Profile() {
               </div>
             </Upload>
             <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-              Click to change photo
+              {t('profile.changePhoto')}
             </Text>
           </Col>
           <Col span={12}>
             <Form form={form} layout="vertical">
-              <Form.Item name="username" label="Username">
+              <Form.Item name="username" label={t('auth.username')}>
                 <Input />
               </Form.Item>
-              <Form.Item name="email" label="Email">
+              <Form.Item name="email" label={t('auth.email')}>
                 <Input />
               </Form.Item>
-              <Form.Item name="role" label="Role">
+              <Form.Item name="role" label={t('auth.role')}>
                 <Input disabled />
               </Form.Item>
               <Button type="primary" onClick={handleUpdateProfile} loading={loading}>
-                Update Profile
+                {t('profile.updateProfile')}
               </Button>
             </Form>
           </Col>
@@ -156,44 +158,44 @@ export default function Profile() {
     },
     {
       key: 'password',
-      label: 'Password',
+      label: t('profile.password'),
       children: (
         <Form form={form} layout="vertical" style={{ maxWidth: 500 }}>
-          <Title level={5}>Change Password</Title>
-          <Form.Item name="currentPassword" label="Current Password">
+          <Title level={5}>{t('profile.changePassword')}</Title>
+          <Form.Item name="currentPassword" label={t('profile.currentPassword')}>
             <Input.Password />
           </Form.Item>
-          <Form.Item name="newPassword" label="New Password">
+          <Form.Item name="newPassword" label={t('auth.newPassword')}>
             <Input.Password />
           </Form.Item>
-          <Form.Item name="confirmPassword" label="Confirm New Password">
+          <Form.Item name="confirmPassword" label={t('auth.confirmPassword')}>
             <Input.Password />
           </Form.Item>
           <Button type="primary" onClick={handleChangePassword} loading={loading}>
-            Change Password
+            {t('profile.changePassword')}
           </Button>
         </Form>
       ),
     },
     {
       key: 'address',
-      label: 'Address',
+      label: t('profile.address'),
       children: (
         <Form form={addressForm} layout="vertical" onFinish={handleUpdateAddress} style={{ maxWidth: 500 }}>
-          <Form.Item name="street" label="Street">
+          <Form.Item name="street" label={t('profile.street')}>
             <Input />
           </Form.Item>
-          <Form.Item name="city" label="City">
+          <Form.Item name="city" label={t('profile.city')}>
             <Input />
           </Form.Item>
-          <Form.Item name="country" label="Country">
+          <Form.Item name="country" label={t('profile.country')}>
             <Input />
           </Form.Item>
-          <Form.Item name="postalCode" label="Postal Code">
+          <Form.Item name="postalCode" label={t('profile.postalCode')}>
             <Input />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={loading}>
-            Update Address
+            {t('profile.updateAddress')}
           </Button>
         </Form>
       ),
@@ -203,8 +205,8 @@ export default function Profile() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>MY PROFILE</Title>
-        <Text type="secondary">Manage your account settings</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('profile.title')}</Title>
+        <Text type="secondary">{t('profile.subtitle')}</Text>
       </div>
       <Card>
         <Tabs items={tabItems} />

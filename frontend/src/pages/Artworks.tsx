@@ -6,12 +6,14 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
 import { artworksApi, ArtworkData, CategoryData, CatalogueData } from '../api/artworks';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
 
 export default function Artworks() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [artworks, setArtworks] = useState<ArtworkData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [catalogues, setCatalogues] = useState<CatalogueData[]>([]);
@@ -41,7 +43,7 @@ export default function Artworks() {
       setArtworks(artRes.data);
       setCategories(catRes.data);
       setCatalogues(catalogRes.data);
-    } catch { message.error('Failed to load data'); }
+    } catch { message.error(t('common.failed')); }
     finally { setLoading(false); }
   };
 
@@ -73,7 +75,7 @@ export default function Artworks() {
 
   const handleDelete = async (id: number) => {
     await artworksApi.delete(id);
-    message.success('Artwork deleted');
+    message.success(t('artworks.deleted'));
     loadData();
   };
 
@@ -84,16 +86,16 @@ export default function Artworks() {
       if (editingArtwork) {
         await artworksApi.update(editingArtwork.id, values);
         artworkId = editingArtwork.id;
-        message.success('Artwork updated');
+        message.success(t('artworks.updated'));
       } else {
         const res = await artworksApi.create(values);
         artworkId = res.data.id;
-        message.success('Artwork created');
+        message.success(t('artworks.created'));
       }
       // Upload image if selected
       if (imageFile) {
         await artworksApi.uploadImage(artworkId, imageFile);
-        message.success('Image uploaded');
+        message.success(t('artworks.imageUploaded'));
       }
       setModalOpen(false);
       setImageFile(null);
@@ -111,18 +113,18 @@ export default function Artworks() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>ARTWORKS</Title>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('artworks.title')}</Title>
         <Text type="secondary">{artworks.length} artworks</Text>
       </div>
 
       <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
         <Col>
-          <Input prefix={<SearchOutlined />} placeholder="Search artworks..." value={searchText}
+          <Input prefix={<SearchOutlined />} placeholder={t('artworks.search')} value={searchText}
             onChange={(e) => handleSearch(e.target.value)} style={{ width: 300 }} />
         </Col>
         <Col>
           {(user?.role === 'ARTIST' || user?.role === 'ADMIN') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Add Artwork</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('artworks.addArtwork')}</Button>
           )}
         </Col>
       </Row>
@@ -130,13 +132,13 @@ export default function Artworks() {
       {/* Filters */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
         <Col>
-          <Select placeholder="All Categories" allowClear style={{ width: 160 }}
+          <Select placeholder={t('artworks.allCategories')} allowClear style={{ width: 160 }}
             value={filterCategory} onChange={(v) => setFilterCategory(v)}>
             {categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
           </Select>
         </Col>
         <Col>
-          <Select placeholder="All Artists" allowClear style={{ width: 160 }}
+          <Select placeholder={t('artworks.allArtists')} allowClear style={{ width: 160 }}
             value={filterArtist} onChange={(v) => setFilterArtist(v)}>
             {[...new Set(artworks.map(a => a.artist?.username).filter(Boolean))].map(name => (
               <Select.Option key={name} value={name}>{name}</Select.Option>
@@ -144,7 +146,7 @@ export default function Artworks() {
           </Select>
         </Col>
         {(filterCategory || filterArtist) && (
-          <Col><Button onClick={() => { setFilterCategory(null); setFilterArtist(null); }}>Clear</Button></Col>
+          <Col><Button onClick={() => { setFilterCategory(null); setFilterArtist(null); }}>{t('orders.clear')}</Button></Col>
         )}
       </Row>
 
@@ -181,7 +183,7 @@ export default function Artworks() {
               }
               actions={canEdit(artwork) ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(artwork)} />,
-                <Popconfirm key="del" title="Delete?" onConfirm={() => handleDelete(artwork.id)}>
+                <Popconfirm key="del" title={t('common.deleteConfirm')} onConfirm={() => handleDelete(artwork.id)}>
                   <DeleteOutlined />
                 </Popconfirm>,
               ] : undefined}
@@ -212,27 +214,27 @@ export default function Artworks() {
 
       {artworks.length === 0 && !loading && (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <Text type="secondary">No artworks found</Text>
+          <Text type="secondary">{t('artworks.noArtworks')}</Text>
         </div>
       )}
 
-      <Modal title={editingArtwork ? 'Edit Artwork' : 'Add Artwork'} open={modalOpen}
-        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingArtwork ? 'Update' : 'Create'} width={500}>
+      <Modal title={editingArtwork ? t('artworks.editArtwork') : t('artworks.addArtwork')} open={modalOpen}
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={editingArtwork ? t('common.update') : t('common.create')} width={500}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
-          <Form.Item name="year" label="Year"><InputNumber style={{ width: '100%' }} min={1000} max={2100} /></Form.Item>
-          <Form.Item name="categoryId" label="Category">
-            <Select placeholder="Select category" allowClear>
+          <Form.Item name="title" label={t('common.title')} rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="description" label={t('artworks.description')}><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="year" label={t('artworks.year')}><InputNumber style={{ width: '100%' }} min={1000} max={2100} /></Form.Item>
+          <Form.Item name="categoryId" label={t('artworks.category')}>
+            <Select placeholder={t('common.selectCategory')} allowClear>
               {categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
             </Select>
           </Form.Item>
-          <Form.Item name="catalogueId" label="Catalogue">
-            <Select placeholder="Select catalogue" allowClear>
+          <Form.Item name="catalogueId" label={t('artworks.catalogue')}>
+            <Select placeholder={t('common.selectCatalogue')} allowClear>
               {catalogues.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
             </Select>
           </Form.Item>
-          <Form.Item label="Image">
+          <Form.Item label={t('artworks.image')}>
             <Upload
               beforeUpload={(file) => { setImageFile(file); return false; }}
               maxCount={1}
@@ -240,25 +242,25 @@ export default function Artworks() {
               listType="picture"
               onRemove={() => setImageFile(null)}
             >
-              <Button icon={<UploadOutlined />}>Select Image</Button>
+              <Button icon={<UploadOutlined />}>{t('artworks.selectImage')}</Button>
             </Upload>
             {editingArtwork?.hasImage && !imageFile && (
-              <Text type="secondary" style={{ fontSize: 12 }}>Current image will be kept if no new image is selected</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>{t('artworks.imageKept')}</Text>
             )}
           </Form.Item>
-          <Form.Item name="forSale" label="For Sale" valuePropName="checked">
-            <Switch checkedChildren="Yes" unCheckedChildren="No" />
+          <Form.Item name="forSale" label={t('artworks.forSale')} valuePropName="checked">
+            <Switch checkedChildren={t('common.yes')} unCheckedChildren={t('common.no')} />
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.forSale !== cur.forSale}>
             {({ getFieldValue }) => getFieldValue('forSale') ? (
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="price" label="Price (DT)" rules={[{ required: true, message: 'Price required' }]}>
+                  <Form.Item name="price" label={t('artworks.price')} rules={[{ required: true, message: t('artworks.priceRequired') }]}>
                     <InputNumber style={{ width: '100%' }} min={0} step={0.5} />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="stock" label="Stock" rules={[{ required: true, message: 'Stock required' }]}>
+                  <Form.Item name="stock" label={t('artworks.stock')} rules={[{ required: true, message: t('artworks.stockRequired') }]}>
                     <InputNumber style={{ width: '100%' }} min={1} />
                   </Form.Item>
                 </Col>
@@ -293,7 +295,7 @@ export default function Artworks() {
                 {previewImage.catalogue && <Tag color="purple">{previewImage.catalogue}</Tag>}
                 {previewImage.description && (
                   <div>
-                    <Text strong style={{ display: 'block', marginBottom: 4 }}>Description</Text>
+                    <Text strong style={{ display: 'block', marginBottom: 4 }}>{t('artworks.description')}</Text>
                     <Text type="secondary">{previewImage.description}</Text>
                   </div>
                 )}

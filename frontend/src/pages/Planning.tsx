@@ -6,11 +6,19 @@ import {
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { coursesApi, CourseData, PlanningData } from '../api/courses';
 import { eventsApi, EventData } from '../api/events';
+import { useTranslation } from 'react-i18next';
 import dayjs, { Dayjs } from 'dayjs';
+import 'dayjs/locale/fr';
 
 const { Title, Text } = Typography;
 
 export default function Planning() {
+  const { t, i18n } = useTranslation();
+
+  // Set dayjs locale based on i18n language
+  useEffect(() => {
+    dayjs.locale(i18n.language === 'fr' ? 'fr' : 'en');
+  }, [i18n.language]);
   const [planning, setPlanning] = useState<PlanningData[]>([]);
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -150,12 +158,12 @@ export default function Planning() {
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '30px 0 24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>PLANNING</Title>
-        <Text type="secondary">{planning.length} scheduled lessons</Text>
+        <Title level={2} style={{ margin: 0, color: '#2B3A67' }}>{t('planning.title')}</Title>
+        <Text type="secondary">{planning.length} {t('planning.scheduledLessons')}</Text>
       </div>
 
       <Row justify="end" style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Schedule Lesson</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('planning.scheduleLesson')}</Button>
       </Row>
 
       {/* Calendar View */}
@@ -218,7 +226,7 @@ export default function Planning() {
                   </Space>
                 </Col>
                 <Col>
-                  <Popconfirm title="Delete?" onConfirm={() => { handleDelete(item.id); setDayModalOpen(false); }}>
+                  <Popconfirm title={t('common.deleteConfirm')} onConfirm={() => { handleDelete(item.id); setDayModalOpen(false); }}>
                     <Button icon={<DeleteOutlined />} size="small" danger />
                   </Popconfirm>
                 </Col>
@@ -226,40 +234,40 @@ export default function Planning() {
             </Card>
           ))}
           {selectedDayItems.length === 0 && selectedDayEvents.length === 0 && (
-            <Text type="secondary">Nothing scheduled</Text>
+            <Text type="secondary">{t('planning.nothingScheduled')}</Text>
           )}
         </Space>
       </Modal>
 
       {/* Schedule Lesson Modal */}
-      <Modal title="Schedule Lesson" open={modalOpen} onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText="Schedule">
+      <Modal title={t('planning.scheduleLesson')} open={modalOpen} onOk={handleSubmit} onCancel={() => setModalOpen(false)} okText={t('planning.schedule')} cancelText={t('common.cancel')}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="courseId" label="Course" rules={[{ required: true }]}>
-            <Select placeholder="Select course">
+          <Form.Item name="courseId" label={t('planning.course')} rules={[{ required: true }]}>
+            <Select placeholder={t('planning.selectCourse')}>
               {courses.map(c => <Select.Option key={c.id} value={c.id}>{c.title}</Select.Option>)}
             </Select>
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="startTime" label="Start Time" rules={[{ required: true }]}>
+              <Form.Item name="startTime" label={t('planning.startTime')} rules={[{ required: true }]}>
                 <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="endTime" label="End Time" rules={[{ required: true }]}>
+              <Form.Item name="endTime" label={t('planning.endTime')} rules={[{ required: true }]}>
                 <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="room" label="Room"><Input placeholder="Room number" /></Form.Item>
-          <Form.Item name="status" label="Status" initialValue="SCHEDULED">
+          <Form.Item name="room" label={t('planning.room')}><Input placeholder={t('planning.roomPlaceholder')} /></Form.Item>
+          <Form.Item name="status" label={t('planning.status')} initialValue="SCHEDULED">
             <Select>
-              <Select.Option value="SCHEDULED">Scheduled</Select.Option>
-              <Select.Option value="COMPLETED">Completed</Select.Option>
-              <Select.Option value="CANCELLED">Cancelled</Select.Option>
+              <Select.Option value="SCHEDULED">{t('planning.scheduled')}</Select.Option>
+              <Select.Option value="COMPLETED">{t('planning.completed')}</Select.Option>
+              <Select.Option value="CANCELLED">{t('planning.cancelled')}</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item name="notes" label="Notes"><Input.TextArea rows={2} /></Form.Item>
+          <Form.Item name="notes" label={t('planning.notes')}><Input.TextArea rows={2} /></Form.Item>
         </Form>
       </Modal>
     </div>
