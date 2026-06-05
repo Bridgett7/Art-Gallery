@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Select, Space,
-  message, Card, Tag, Row, Col, Popconfirm, Tabs, Drawer, List, Empty, Pagination
+  message, Card, Tag, Row, Col, Popconfirm, Tabs, Drawer, List, Empty, Upload
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, BookOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, BookOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { coursesApi, CourseData, LessonData } from '../api/courses';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,6 +31,12 @@ export default function Courses() {
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [lessonForm] = Form.useForm();
+  const [lessonFile, setLessonFile] = useState<File | null>(null);
+
+  // Lesson content viewer
+  const [viewingLesson, setViewingLesson] = useState<LessonData | null>(null);
+  const [lessonContent, setLessonContent] = useState('');
+  const [editingContent, setEditingContent] = useState(false);
 
   useEffect(() => { loadCourses(); }, []);
 
@@ -101,17 +107,27 @@ export default function Courses() {
     } catch { message.error('Failed to load lessons'); }
   };
 
-  const handleAddLesson = () => { lessonForm.resetFields(); setLessonModalOpen(true); };
+  const handleAddLesson = () => { lessonForm.resetFields(); setLessonFile(null); setLessonModalOpen(true); };
 
   const handleLessonSubmit = async () => {
     if (!selectedCourse) return;
     const values = await lessonForm.validateFields();
     try {
-      await coursesApi.createLesson(selectedCourse.id, values);
+      const res = await coursesApi.createLesson(selectedCourse.id, values);
+      const lessonId = (res.data as any).id;
+      // Upload content if provided
+      if (values.content && values.content.trim()) {
+        await coursesApi.updateLessonContent(lessonId, values.content);
+      }
+      // Upload PDF if selected
+      if (lessonFile) {
+        await coursesApi.uploadLessonAttachment(lessonId, lessonFile);
+      }
       message.success('Lesson added');
       setLessonModalOpen(false);
-      const res = await coursesApi.getLessons(selectedCourse.id);
-      setLessons(res.data);
+      setLessonFile(null);
+      const lessonsRes = await coursesApi.getLessons(selectedCourse.id);
+      setLessons(lessonsRes.data);
     } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
   };
 
@@ -121,6 +137,47 @@ export default function Courses() {
     message.success('Lesson deleted');
     const res = await coursesApi.getLessons(selectedCourse.id);
     setLessons(res.data);
+  };
+
+  const handleViewLesson = async (lesson: LessonData) => {
+    try {
+      const res = await coursesApi.getLessonDetail(lesson.id);
+      setViewingLesson(res.data);
+      setLessonContent(res.data.content || '');
+      setEditingContent(false);
+    } catch { message.error('Failed to load lesson'); }
+  };
+
+  const handleSaveContent = async () => {
+    if (!viewingLesson) return;
+    try {
+      await coursesApi.updateLessonContent(viewingLesson.id, lessonContent);
+      message.success('Content saved');
+      setEditingContent(false);
+      setViewingLesson({ ...viewingLesson, content: lessonContent, hasContent: true });
+      // Refresh lessons list
+      if (selectedCourse) {
+        const res = await coursesApi.getLessons(selectedCourse.id);
+        setLessons(res.data);
+      }
+    } catch { message.error('Failed to save'); }
+  };
+
+  const handleUploadAttachment = async (file: File) => {
+    if (!viewingLesson) return;
+    try {
+      const res = await coursesApi.uploadLessonAttachment(viewingLesson.id, file);
+      message.success('Attachment uploaded');
+      setViewingLesson({ ...viewingLesson, hasAttachment: true, attachmentName: (res.data as any).filename });
+      if (selectedCourse) {
+        const lessonsRes = await coursesApi.getLessons(selectedCourse.id);
+        setLessons(lessonsRes.data);
+      }
+    } catch { message.error('Upload failed'); }
+  };
+
+  const handleDownloadAttachment = (lessonId: number) => {
+    window.open(`/api/courses/lessons/${lessonId}/attachment`, '_blank');
   };
 
   const levelColor = (level: string | null) => {
@@ -293,15 +350,24 @@ export default function Courses() {
             dataSource={lessons}
             renderItem={(lesson, index) => (
               <List.Item
-                actions={isArtistOrAdmin && selectedCourse?.artistId === user?.userId ? [
-                  <Popconfirm title="Delete?" onConfirm={() => handleDeleteLesson(lesson.id)}>
-                    <Button icon={<DeleteOutlined />} size="small" danger />
-                  </Popconfirm>
-                ] : undefined}
+                actions={[
+                  <Button icon={<EyeOutlined />} size="small" onClick={() => handleViewLesson(lesson)}>View</Button>,
+                  ...(isArtistOrAdmin && selectedCourse?.artistId === user?.userId ? [
+                    <Popconfirm title="Delete?" onConfirm={() => handleDeleteLesson(lesson.id)}>
+                      <Button icon={<DeleteOutlined />} size="small" danger />
+                    </Popconfirm>
+                  ] : []),
+                ]}
               >
                 <List.Item.Meta
                   avatar={<Tag color="#2B3A67">{lesson.lessonOrder ?? index + 1}</Tag>}
-                  title={lesson.title}
+                  title={
+                    <Space>
+                      <span>{lesson.title}</span>
+                      {lesson.hasContent && <FileTextOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
+                      {lesson.hasAttachment && <DownloadOutlined style={{ color: '#1890ff', fontSize: 12 }} />}
+                    </Space>
+                  }
                   description={
                     <Space direction="vertical" size={2}>
                       <Text type="secondary">{lesson.description || 'No description'}</Text>
@@ -318,9 +384,100 @@ export default function Courses() {
         )}
       </Drawer>
 
+      {/* Lesson Content Viewer Modal */}
+      <Modal
+        title={viewingLesson ? `📖 ${viewingLesson.title}` : 'Lesson'}
+        open={!!viewingLesson}
+        onCancel={() => setViewingLesson(null)}
+        width={700}
+        footer={null}
+      >
+        {viewingLesson && (
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {/* Metadata */}
+            <Row gutter={12}>
+              {viewingLesson.level && <Col><Tag color={levelColor(viewingLesson.level)}>{viewingLesson.level}</Tag></Col>}
+              {viewingLesson.duration && <Col><Text type="secondary">⏱ {viewingLesson.duration} min</Text></Col>}
+            </Row>
+            {viewingLesson.description && <Text type="secondary">{viewingLesson.description}</Text>}
+
+            {/* Content */}
+            <Card size="small" title="Lesson Content" extra={
+              isArtistOrAdmin && selectedCourse?.artistId === user?.userId && (
+                editingContent
+                  ? <Space><Button size="small" type="primary" onClick={handleSaveContent}>Save</Button><Button size="small" onClick={() => setEditingContent(false)}>Cancel</Button></Space>
+                  : <Button size="small" icon={<EditOutlined />} onClick={() => setEditingContent(true)}>Edit</Button>
+              )
+            }>
+              {editingContent ? (
+                <Input.TextArea
+                  value={lessonContent}
+                  onChange={(e) => setLessonContent(e.target.value)}
+                  rows={12}
+                  placeholder="Write your lesson content here..."
+                  style={{ fontFamily: 'inherit' }}
+                />
+              ) : (
+                <div style={{ minHeight: 100, whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+                  {viewingLesson.content || <Text type="secondary" italic>No content yet</Text>}
+                </div>
+              )}
+            </Card>
+
+            {/* Attachment */}
+            <Card size="small" title="Attachment">
+              {viewingLesson.hasAttachment ? (
+                <Space>
+                  <Text>📎 {viewingLesson.attachmentName || 'document.pdf'}</Text>
+                  <Button icon={<DownloadOutlined />} size="small" onClick={() => handleDownloadAttachment(viewingLesson.id)}>
+                    Download
+                  </Button>
+                </Space>
+              ) : (
+                <Text type="secondary">No attachment</Text>
+              )}
+              {isArtistOrAdmin && selectedCourse?.artistId === user?.userId && (
+                <Upload
+                  beforeUpload={(file) => { handleUploadAttachment(file); return false; }}
+                  maxCount={1}
+                  accept=".pdf,.doc,.docx,.pptx"
+                  showUploadList={false}
+                  style={{ marginTop: 8 }}
+                >
+                  <Button icon={<UploadOutlined />} size="small" style={{ marginTop: 8 }}>
+                    {viewingLesson.hasAttachment ? 'Replace' : 'Upload'} PDF
+                  </Button>
+                </Upload>
+              )}
+            </Card>
+
+            {/* Navigation */}
+            <Row justify="space-between">
+              <Button disabled={lessons.findIndex(l => l.id === viewingLesson.id) === 0}
+                onClick={() => {
+                  const idx = lessons.findIndex(l => l.id === viewingLesson.id);
+                  if (idx > 0) handleViewLesson(lessons[idx - 1]);
+                }}>
+                ← Previous
+              </Button>
+              <Text type="secondary">
+                {lessons.findIndex(l => l.id === viewingLesson.id) + 1} / {lessons.length}
+              </Text>
+              <Button disabled={lessons.findIndex(l => l.id === viewingLesson.id) === lessons.length - 1}
+                onClick={() => {
+                  const idx = lessons.findIndex(l => l.id === viewingLesson.id);
+                  if (idx < lessons.length - 1) handleViewLesson(lessons[idx + 1]);
+                }}>
+                Next →
+              </Button>
+            </Row>
+          </Space>
+        )}
+      </Modal>
+
       {/* Add Lesson Modal */}
       <Modal title="Add Lesson" open={lessonModalOpen}
-        onOk={handleLessonSubmit} onCancel={() => setLessonModalOpen(false)} okText="Add">
+        onOk={handleLessonSubmit} onCancel={() => { setLessonModalOpen(false); setLessonFile(null); }} okText="Add" width={600}>
         <Form form={lessonForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="description" label="Description"><Input.TextArea rows={2} /></Form.Item>
@@ -341,6 +498,19 @@ export default function Courses() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item name="content" label="Content (optional)">
+            <Input.TextArea rows={5} placeholder="Write the lesson content here..." />
+          </Form.Item>
+          <Form.Item label="Attachment PDF (optional)">
+            <Upload
+              beforeUpload={(file) => { setLessonFile(file); return false; }}
+              onRemove={() => setLessonFile(null)}
+              maxCount={1}
+              accept=".pdf,.doc,.docx,.pptx"
+            >
+              <Button icon={<UploadOutlined />}>Select PDF</Button>
+            </Upload>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

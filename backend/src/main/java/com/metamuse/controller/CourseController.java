@@ -114,6 +114,53 @@ public class CourseController {
         return ResponseEntity.ok(Map.of("message", "Lesson deleted"));
     }
 
+    @GetMapping("/lessons/{id}")
+    public ResponseEntity<?> getLessonDetail(@PathVariable Long id) {
+        return courseService.getLessonById(id)
+                .map(l -> {
+                    var dto = lessonDetailToDto(l);
+                    return ResponseEntity.ok(dto);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/lessons/{id}/content")
+    public ResponseEntity<?> updateLessonContent(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            var lesson = courseService.getLessonById(id).orElseThrow();
+            lesson.setContent(body.get("content"));
+            courseService.updateLesson(lesson);
+            return ResponseEntity.ok(Map.of("message", "Content updated"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/lessons/{id}/attachment")
+    public ResponseEntity<?> uploadLessonAttachment(@PathVariable Long id,
+                                                    @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            var lesson = courseService.getLessonById(id).orElseThrow();
+            lesson.setAttachment(file.getBytes());
+            lesson.setAttachmentName(file.getOriginalFilename());
+            courseService.updateLesson(lesson);
+            return ResponseEntity.ok(Map.of("message", "Attachment uploaded", "filename", file.getOriginalFilename()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Upload failed"));
+        }
+    }
+
+    @GetMapping("/lessons/{id}/attachment")
+    public ResponseEntity<byte[]> downloadLessonAttachment(@PathVariable Long id) {
+        var lesson = courseService.getLessonById(id).orElse(null);
+        if (lesson == null || lesson.getAttachment() == null) return ResponseEntity.notFound().build();
+        String filename = lesson.getAttachmentName() != null ? lesson.getAttachmentName() : "attachment.pdf";
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .body(lesson.getAttachment());
+    }
+
     // --- Planning ---
     @GetMapping("/planning")
     public ResponseEntity<List<Map<String, Object>>> getAllPlanning() {
@@ -166,6 +213,15 @@ public class CourseController {
         dto.put("level", l.getLevel() != null ? l.getLevel().name() : null);
         dto.put("lessonOrder", l.getLessonOrder());
         dto.put("duration", l.getDuration());
+        dto.put("hasContent", l.getContent() != null && !l.getContent().isBlank());
+        dto.put("hasAttachment", l.getAttachment() != null);
+        dto.put("attachmentName", l.getAttachmentName());
+        return dto;
+    }
+
+    private Map<String, Object> lessonDetailToDto(Lesson l) {
+        var dto = lessonToDto(l);
+        dto.put("content", l.getContent());
         return dto;
     }
 

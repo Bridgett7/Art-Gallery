@@ -17,6 +17,10 @@ export interface LessonData {
   level: string | null;
   lessonOrder: number | null;
   duration: number | null;
+  hasContent: boolean;
+  hasAttachment: boolean;
+  attachmentName: string | null;
+  content?: string;
 }
 
 export interface PlanningData {
@@ -39,7 +43,14 @@ export const coursesApi = {
   update: (id: number, data: any) => api.put(`/courses/${id}`, data),
   delete: (id: number) => api.delete(`/courses/${id}`),
   getLessons: (courseId: number) => api.get<LessonData[]>(`/courses/${courseId}/lessons`),
+  getLessonDetail: (id: number) => api.get<LessonData>(`/courses/lessons/${id}`),
   createLesson: (courseId: number, data: any) => api.post(`/courses/${courseId}/lessons`, data),
+  updateLessonContent: (id: number, content: string) => api.put(`/courses/lessons/${id}/content`, { content }),
+  uploadLessonAttachment: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/courses/lessons/${id}/attachment`, formData);
+  },
   deleteLesson: (id: number) => api.delete(`/courses/lessons/${id}`),
   getPlanning: () => api.get<PlanningData[]>('/courses/planning'),
   createPlanning: (data: any) => api.post('/courses/planning', data),

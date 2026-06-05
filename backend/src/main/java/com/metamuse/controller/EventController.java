@@ -5,7 +5,9 @@ import com.metamuse.model.Event;
 import com.metamuse.model.Ticket;
 import com.metamuse.repository.TicketRepository;
 import com.metamuse.service.EventService;
+import com.metamuse.service.QRCodeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,7 @@ public class EventController {
 
     private final EventService eventService;
     private final TicketRepository ticketRepository;
+    private final QRCodeService qrCodeService;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllEvents() {
@@ -146,6 +149,16 @@ public class EventController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/tickets/{ticketId}/qr")
+    public ResponseEntity<byte[]> getTicketQR(@PathVariable Long ticketId) {
+        Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
+        if (ticket == null) return ResponseEntity.notFound().build();
+        String eventName = ticket.getEvent() != null ? ticket.getEvent().getName() : "Unknown";
+        String userName = ticket.getUser().getUsername();
+        byte[] qr = qrCodeService.generateTicketQR(ticketId, eventName, userName);
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(qr);
     }
 
     private Map<String, Object> toDto(Event e) {

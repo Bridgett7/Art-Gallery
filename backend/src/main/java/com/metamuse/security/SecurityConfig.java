@@ -38,6 +38,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
+                .requestMatchers("/api/users/profile-picture/**").permitAll()
+                .requestMatchers("/api/artworks/*/image").permitAll()
+                .requestMatchers("/api/products/*/image").permitAll()
+                .requestMatchers("/api/events/tickets/*/qr").permitAll()
+                .requestMatchers("/api/courses/lessons/*/attachment").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/search").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")

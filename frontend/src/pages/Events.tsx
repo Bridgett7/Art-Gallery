@@ -17,6 +17,7 @@ export default function Events() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [searchText, setSearchText] = useState('');
   const [filter, setFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +62,13 @@ export default function Events() {
     } catch (err: any) {
       message.error(err.response?.data?.error || 'Failed to purchase ticket');
     }
+  };
+
+  const handleViewEvent = async (event: EventData) => {
+    try {
+      const res = await eventsApi.getById(event.id);
+      setSelectedEvent(res.data);
+    } catch { setSelectedEvent(event); }
   };
 
   const handleSearch = async (value: string) => {
@@ -144,6 +152,84 @@ export default function Events() {
     { key: 'tickets', label: `My Tickets (${myTickets.length})` },
   ];
 
+  // Event Detail View
+  if (selectedEvent) {
+    return (
+      <div>
+        <Button onClick={() => setSelectedEvent(null)} style={{ marginBottom: 16 }}>← Back to Exhibitions</Button>
+        <Card style={{ borderRadius: 12 }}>
+          <Row gutter={24}>
+            <Col span={14}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Row justify="space-between" align="middle">
+                  <Title level={3} style={{ margin: 0, color: '#2B3A67' }}>{selectedEvent.name}</Title>
+                  <Tag color={statusColor(selectedEvent.status)}>{selectedEvent.status}</Tag>
+                </Row>
+                {selectedEvent.theme && <Text italic style={{ fontSize: 16 }}>{selectedEvent.theme}</Text>}
+                {selectedEvent.description && <Text>{selectedEvent.description}</Text>}
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Card size="small" style={{ background: '#f8f9fa' }}>
+                      <Text strong>📍 Location</Text><br />
+                      <Text>{selectedEvent.location || 'TBD'}</Text>
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card size="small" style={{ background: '#f8f9fa' }}>
+                      <Text strong>📅 Dates</Text><br />
+                      <Text>{selectedEvent.startDate} → {selectedEvent.endDate}</Text>
+                    </Card>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Card size="small" style={{ background: '#f8f9fa' }}>
+                      <Text strong>👥 Capacity</Text><br />
+                      <Text>{selectedEvent.capacity || 'Unlimited'}</Text>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small" style={{ background: '#f8f9fa' }}>
+                      <Text strong>🎫 Visitor Price</Text><br />
+                      <Text>{selectedEvent.ticketPriceVisitor != null ? `${selectedEvent.ticketPriceVisitor} DT` : 'Free'}</Text>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small" style={{ background: '#f8f9fa' }}>
+                      <Text strong>🎨 Artist Price</Text><br />
+                      <Text>{selectedEvent.ticketPriceArtist != null ? `${selectedEvent.ticketPriceArtist} DT` : 'Free'}</Text>
+                    </Card>
+                  </Col>
+                </Row>
+                {selectedEvent.openingHours && <Text>🕐 Opening hours: {selectedEvent.openingHours}</Text>}
+                {(selectedEvent as any).ticketsSold != null && (
+                  <Text type="secondary">Tickets sold: {(selectedEvent as any).ticketsSold}</Text>
+                )}
+              </Space>
+            </Col>
+            <Col span={10}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                {selectedEvent.hasImage && (
+                  <img src={`/api/events/${selectedEvent.id}/image`} alt={selectedEvent.name}
+                    style={{ width: '100%', borderRadius: 8, objectFit: 'cover', maxHeight: 250 }} />
+                )}
+                {(selectedEvent.status === 'PUBLISHED' || selectedEvent.status === 'ONGOING') && (
+                  <Button type="primary" block size="large" icon={<TagOutlined />}
+                    onClick={() => handlePurchaseTicket(selectedEvent)}>
+                    Buy Ticket — {user?.role === 'ARTIST' ? selectedEvent.ticketPriceArtist : selectedEvent.ticketPriceVisitor} DT
+                  </Button>
+                )}
+                {(selectedEvent as any).mapsLink && (
+                  <Button block href={(selectedEvent as any).mapsLink} target="_blank">📍 Open in Google Maps</Button>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
@@ -196,6 +282,8 @@ export default function Events() {
                       </Space>
                       <Text type="secondary">📅 {ticket.event?.startDate} → {ticket.event?.endDate}</Text>
                       <Text strong style={{ color: '#27AE60' }}>Paid: {ticket.price} DT</Text>
+                      <img src={`/api/events/tickets/${ticket.id}/qr`} alt="QR Code"
+                        style={{ width: 120, height: 120, marginTop: 8, border: '1px solid #eee', borderRadius: 4 }} />
                     </Space>
                   </Card>
                 </Col>
@@ -211,6 +299,7 @@ export default function Events() {
                 <Card
                   hoverable
                   style={{ borderRadius: 12, overflow: 'hidden' }}
+                  onClick={() => handleViewEvent(event)}
                   actions={
                     (user?.role === 'ADMIN' || user?.role === 'ARTIST') ? [
                       <EditOutlined onClick={() => handleEdit(event)} />,

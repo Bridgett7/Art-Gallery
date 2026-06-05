@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, Typography, Tabs, message, Avatar, Row, Col } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useRef } from 'react';
+import { Card, Form, Input, Button, Typography, Tabs, message, Avatar, Row, Col, Upload } from 'antd';
+import { UserOutlined, CameraOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
 
@@ -11,6 +11,8 @@ export default function Profile() {
   const [form] = Form.useForm();
   const [addressForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [picVersion, setPicVersion] = useState(Date.now());
 
   useEffect(() => {
     if (user) {
@@ -26,11 +28,13 @@ export default function Profile() {
         email: res.data.email,
         role: res.data.role,
       });
+      if (res.data.profilePicture) {
+        setProfilePicture(res.data.profilePicture + '?v=' + Date.now());
+      }
       if (res.data.address) {
         addressForm.setFieldsValue(res.data.address);
       }
     } catch (err) {
-      // fallback to context
       form.setFieldsValue({
         username: user?.username,
         email: user?.email,
@@ -96,7 +100,40 @@ export default function Profile() {
       children: (
         <Row gutter={40} align="top">
           <Col span={12} style={{ textAlign: 'center', paddingTop: 20 }}>
-            <Avatar size={180} icon={<UserOutlined />} style={{ border: '2px solid #eee' }} />
+            <Upload
+              showUploadList={false}
+              beforeUpload={async (file) => {
+                try {
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  const res = await api.post('/users/profile-picture', formData);
+                  setPicVersion(Date.now());
+                  setProfilePicture(res.data.profilePicture + '?v=' + Date.now());
+                  message.success('Profile picture updated');
+                } catch { message.error('Upload failed'); }
+                return false;
+              }}
+              accept="image/*"
+            >
+              <div style={{ cursor: 'pointer', position: 'relative', display: 'inline-block' }}>
+                <Avatar
+                  size={180}
+                  src={profilePicture || undefined}
+                  icon={!profilePicture ? <UserOutlined /> : undefined}
+                  style={{ border: '2px solid #eee' }}
+                />
+                <div style={{
+                  position: 'absolute', bottom: 8, right: 8,
+                  background: '#2B3A67', borderRadius: '50%', padding: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <CameraOutlined style={{ color: '#fff', fontSize: 16 }} />
+                </div>
+              </div>
+            </Upload>
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
+              Click to change photo
+            </Text>
           </Col>
           <Col span={12}>
             <Form form={form} layout="vertical">

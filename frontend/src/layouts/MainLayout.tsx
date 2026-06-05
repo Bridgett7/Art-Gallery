@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Button, Avatar, Typography, Badge } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Layout, Menu, Button, Avatar, Typography, Badge, Space } from 'antd';
 import {
   DashboardOutlined,
   PictureOutlined,
@@ -24,10 +24,19 @@ const { Text } = Typography;
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
+
+  useEffect(() => {
+    // Fetch active order item count
+    fetch('/api/orders/active', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(data => { if (data.itemCount) setCartCount(data.itemCount); })
+      .catch(() => {});
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -112,9 +121,14 @@ export default function MainLayout() {
       <Layout>
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <GlobalSearch />
-          <Badge count={unreadCount} size="small">
-            <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/notifications')} />
-          </Badge>
+          <Space size={16}>
+            <Badge count={cartCount} size="small">
+              <Button type="text" icon={<ShoppingCartOutlined />} onClick={() => navigate('/orders')} />
+            </Badge>
+            <Badge count={unreadCount} size="small">
+              <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/notifications')} />
+            </Badge>
+          </Space>
         </Header>
         <Content style={{ background: '#F5F3F7', padding: 24, overflow: 'auto' }}>
           <Outlet />

@@ -32,4 +32,8 @@ public class User {
 
     @Column(name = "profile_picture")
     private String profilePicture;
+
+    @Lob
+    @Column(name = "profile_image", columnDefinition = "LONGBLOB")
+    private byte[] profileImage;
 }

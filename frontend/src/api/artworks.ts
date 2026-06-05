@@ -32,6 +32,11 @@ export const artworksApi = {
   create: (data: any) => api.post<ArtworkData>('/artworks', data),
   update: (id: number, data: any) => api.put<ArtworkData>(`/artworks/${id}`, data),
   delete: (id: number) => api.delete(`/artworks/${id}`),
+  uploadImage: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/artworks/${id}/image`, formData);
+  },
   getCategories: () => api.get<CategoryData[]>('/artworks/categories'),
   createCategory: (name: string) => api.post<CategoryData>('/artworks/categories', { name }),
   deleteCategory: (id: number) => api.delete(`/artworks/categories/${id}`),

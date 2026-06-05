@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Select, Space,
-  message, Popconfirm, Card, Tag, Row, Col, Pagination, Switch
+  message, Popconfirm, Card, Tag, Row, Col, Pagination, Switch, Upload
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, PictureOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
 import { artworksApi, ArtworkData, CategoryData, CatalogueData } from '../api/artworks';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,7 +20,12 @@ export default function Artworks() {
   const [editingArtwork, setEditingArtwork] = useState<ArtworkData | null>(null);
   const [searchText, setSearchText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterCategory, setFilterCategory] = useState<number | null>(null);
+  const [filterArtist, setFilterArtist] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageVersion, setImageVersion] = useState(Date.now());
+  const [previewImage, setPreviewImage] = useState<{url: string; title: string; artist?: string; year?: number; category?: string; catalogue?: string; description?: string; price?: number} | null>(null);
   const pageSize = 6;
 
   useEffect(() => { loadData(); }, []);
@@ -48,10 +53,11 @@ export default function Artworks() {
     } else { loadData(); }
   };
 
-  const handleAdd = () => { setEditingArtwork(null); form.resetFields(); setModalOpen(true); };
+  const handleAdd = () => { setEditingArtwork(null); form.resetFields(); setImageFile(null); setModalOpen(true); };
 
   const handleEdit = (artwork: ArtworkData) => {
     setEditingArtwork(artwork);
+    setImageFile(null);
     form.setFieldsValue({
       title: artwork.title,
       description: artwork.description,
@@ -74,14 +80,24 @@ export default function Artworks() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      let artworkId: number;
       if (editingArtwork) {
         await artworksApi.update(editingArtwork.id, values);
+        artworkId = editingArtwork.id;
         message.success('Artwork updated');
       } else {
-        await artworksApi.create(values);
+        const res = await artworksApi.create(values);
+        artworkId = res.data.id;
         message.success('Artwork created');
       }
+      // Upload image if selected
+      if (imageFile) {
+        await artworksApi.uploadImage(artworkId, imageFile);
+        message.success('Image uploaded');
+      }
       setModalOpen(false);
+      setImageFile(null);
+      setImageVersion(Date.now());
       loadData();
     } catch (err: any) {
       if (err.response?.data?.error) message.error(err.response.data.error);
@@ -99,7 +115,7 @@ export default function Artworks() {
         <Text type="secondary">{artworks.length} artworks</Text>
       </div>
 
-      <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
         <Col>
           <Input prefix={<SearchOutlined />} placeholder="Search artworks..." value={searchText}
             onChange={(e) => handleSearch(e.target.value)} style={{ width: 300 }} />
@@ -111,14 +127,52 @@ export default function Artworks() {
         </Col>
       </Row>
 
+      {/* Filters */}
+      <Row gutter={12} style={{ marginBottom: 20 }}>
+        <Col>
+          <Select placeholder="All Categories" allowClear style={{ width: 160 }}
+            value={filterCategory} onChange={(v) => setFilterCategory(v)}>
+            {categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
+          </Select>
+        </Col>
+        <Col>
+          <Select placeholder="All Artists" allowClear style={{ width: 160 }}
+            value={filterArtist} onChange={(v) => setFilterArtist(v)}>
+            {[...new Set(artworks.map(a => a.artist?.username).filter(Boolean))].map(name => (
+              <Select.Option key={name} value={name}>{name}</Select.Option>
+            ))}
+          </Select>
+        </Col>
+        {(filterCategory || filterArtist) && (
+          <Col><Button onClick={() => { setFilterCategory(null); setFilterArtist(null); }}>Clear</Button></Col>
+        )}
+      </Row>
+
       <Row gutter={[20, 20]}>
-        {artworks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(artwork => (
+        {artworks
+          .filter(a => !filterCategory || a.category?.id === filterCategory)
+          .filter(a => !filterArtist || a.artist?.username === filterArtist)
+          .slice((currentPage - 1) * pageSize, currentPage * pageSize).map(artwork => (
           <Col xs={24} sm={12} md={8} lg={6} key={artwork.id}>
             <Card
               hoverable
               cover={
                 artwork.hasImage ? (
-                  <img alt={artwork.title} src={`/api/artworks/${artwork.id}/image`} style={{ height: 180, objectFit: 'cover' }} />
+                  <img
+                    alt={artwork.title}
+                    src={`/api/artworks/${artwork.id}/image?v=${imageVersion}`}
+                    style={{ height: 180, objectFit: 'contain', background: '#fafafa', cursor: 'pointer' }}
+                    onClick={() => setPreviewImage({
+                      url: `/api/artworks/${artwork.id}/image?v=${imageVersion}`,
+                      title: artwork.title,
+                      artist: artwork.artist?.username,
+                      year: artwork.year ?? undefined,
+                      category: artwork.category?.name,
+                      catalogue: artwork.catalogue?.name,
+                      description: artwork.description,
+                      price: artwork.price ?? undefined,
+                    })}
+                  />
                 ) : (
                   <div style={{ height: 180, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <PictureOutlined style={{ fontSize: 48, color: '#ccc' }} />
@@ -178,6 +232,20 @@ export default function Artworks() {
               {catalogues.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
             </Select>
           </Form.Item>
+          <Form.Item label="Image">
+            <Upload
+              beforeUpload={(file) => { setImageFile(file); return false; }}
+              maxCount={1}
+              accept="image/*"
+              listType="picture"
+              onRemove={() => setImageFile(null)}
+            >
+              <Button icon={<UploadOutlined />}>Select Image</Button>
+            </Upload>
+            {editingArtwork?.hasImage && !imageFile && (
+              <Text type="secondary" style={{ fontSize: 12 }}>Current image will be kept if no new image is selected</Text>
+            )}
+          </Form.Item>
           <Form.Item name="forSale" label="For Sale" valuePropName="checked">
             <Switch checkedChildren="Yes" unCheckedChildren="No" />
           </Form.Item>
@@ -198,6 +266,44 @@ export default function Artworks() {
             ) : null}
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        open={!!previewImage}
+        footer={null}
+        onCancel={() => setPreviewImage(null)}
+        width="80%"
+        centered
+        styles={{ body: { padding: 0 } }}
+      >
+        {previewImage && (
+          <Row gutter={0}>
+            <Col span={16} style={{ background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+              <img src={previewImage.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }} />
+            </Col>
+            <Col span={8} style={{ padding: 24 }}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Title level={4} style={{ margin: 0, color: '#2B3A67' }}>{previewImage.title}</Title>
+                {previewImage.artist && (
+                  <Text type="secondary">By <Text strong>{previewImage.artist}</Text></Text>
+                )}
+                {previewImage.year && <Tag>{previewImage.year}</Tag>}
+                {previewImage.category && <Tag color="blue">{previewImage.category}</Tag>}
+                {previewImage.catalogue && <Tag color="purple">{previewImage.catalogue}</Tag>}
+                {previewImage.description && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 4 }}>Description</Text>
+                    <Text type="secondary">{previewImage.description}</Text>
+                  </div>
+                )}
+                {previewImage.price && (
+                  <Text strong style={{ fontSize: 18, color: '#27AE60' }}>🛒 {previewImage.price} DT</Text>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        )}
       </Modal>
     </div>
   );

@@ -19,6 +19,16 @@ public class Lesson {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "content", columnDefinition = "LONGTEXT")
+    private String content;
+
+    @Lob
+    @Column(name = "attachment", columnDefinition = "LONGBLOB")
+    private byte[] attachment;
+
+    @Column(name = "attachment_name")
+    private String attachmentName;
+
     @Column(name = "artist_id", length = 50)
     private String artistId;
 

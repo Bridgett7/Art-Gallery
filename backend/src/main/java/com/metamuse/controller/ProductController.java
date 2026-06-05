@@ -1,6 +1,7 @@
 package com.metamuse.controller;
 
 import com.metamuse.model.Product;
+import com.metamuse.repository.ProductRepository;
 import com.metamuse.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAll() {
@@ -34,13 +36,12 @@ public class ProductController {
 
     @GetMapping("/{id}/image")
     public ResponseEntity<byte[]> getImage(@PathVariable Long id) {
-        try {
-            Product product = productService.findById(id);
-            if (product.getImage() == null) return ResponseEntity.notFound().build();
-            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(product.getImage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null || product.getImage() == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .body(product.getImage());
     }
 
     @GetMapping("/search")
@@ -51,10 +52,13 @@ public class ProductController {
     @PostMapping("/{id}/image")
     public ResponseEntity<?> uploadProductImage(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         try {
-            productService.updateFields(id, null, null, null, null, file);
-            return ResponseEntity.ok(Map.of("message", "Image uploaded"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            Product product = productRepository.findById(id).orElse(null);
+            if (product == null) return ResponseEntity.notFound().build();
+            product.setImage(file.getBytes());
+            productRepository.save(product);
+            return ResponseEntity.ok(Map.of("message", "Image uploaded", "size", file.getSize()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed: " + e.getMessage()));
         }
     }
 

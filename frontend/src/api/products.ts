@@ -16,4 +16,9 @@ export const productsApi = {
   create: (data: any) => api.post<ProductData>('/products', data),
   update: (id: number, data: any) => api.put<ProductData>(`/products/${id}`, data),
   delete: (id: number) => api.delete(`/products/${id}`),
+  uploadImage: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/products/${id}/image`, formData);
+  },
 };

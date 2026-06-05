@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Button, Modal, Form, Input, InputNumber, Space,
-  message, Card, Row, Col, Popconfirm, Tag, Tabs, Pagination
+  message, Card, Row, Col, Popconfirm, Tag, Tabs, Pagination, Upload
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCartOutlined, UploadOutlined } from '@ant-design/icons';
 import { productsApi, ProductData } from '../api/products';
 import { ordersApi } from '../api/orders';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,9 @@ export default function Marketplace() {
   const [pageAll, setPageAll] = useState(1);
   const [pageMy, setPageMy] = useState(1);
   const [form] = Form.useForm();
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageVersion, setImageVersion] = useState(Date.now());
+  const [previewImage, setPreviewImage] = useState<{url: string; name: string; description?: string; price?: number; stock?: number} | null>(null);
   const pageSize = 6;
 
   const isArtist = user?.role === 'ARTIST' || user?.role === 'ADMIN';
@@ -55,10 +58,11 @@ export default function Marketplace() {
     } else { loadProducts(); }
   };
 
-  const handleAdd = () => { setEditingProduct(null); form.resetFields(); setModalOpen(true); };
+  const handleAdd = () => { setEditingProduct(null); form.resetFields(); setImageFile(null); setModalOpen(true); };
 
   const handleEdit = (product: ProductData) => {
     setEditingProduct(product);
+    setImageFile(null);
     form.setFieldsValue(product);
     setModalOpen(true);
   };
@@ -72,14 +76,23 @@ export default function Marketplace() {
   const handleSubmit = async () => {
     const values = await form.validateFields();
     try {
+      let productId: number;
       if (editingProduct) {
         await productsApi.update(editingProduct.id, values);
+        productId = editingProduct.id;
         message.success('Product updated');
       } else {
-        await productsApi.create(values);
+        const res = await productsApi.create(values);
+        productId = res.data.id;
         message.success('Product created');
       }
+      if (imageFile) {
+        await productsApi.uploadImage(productId, imageFile);
+        message.success('Image uploaded');
+      }
       setModalOpen(false);
+      setImageFile(null);
+      setImageVersion(Date.now());
       loadProducts();
     } catch (err: any) { message.error(err.response?.data?.error || 'Failed'); }
   };
@@ -105,7 +118,18 @@ export default function Marketplace() {
         hoverable
         cover={
           product.hasImage ? (
-            <img alt={product.name} src={`/api/products/${product.id}/image`} style={{ height: 200, objectFit: 'cover' }} />
+            <img
+              alt={product.name}
+              src={`/api/products/${product.id}/image?v=${imageVersion}`}
+              style={{ height: 200, objectFit: 'contain', background: '#fafafa', cursor: 'pointer' }}
+              onClick={(e) => { e.stopPropagation(); setPreviewImage({
+                url: `/api/products/${product.id}/image?v=${imageVersion}`,
+                name: product.name,
+                description: product.description,
+                price: product.price ?? undefined,
+                stock: product.stock ?? undefined,
+              }); }}
+            />
           ) : (
             <div style={{ height: 200, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ShoppingCartOutlined style={{ fontSize: 48, color: '#ccc' }} />
@@ -235,7 +259,55 @@ export default function Marketplace() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item label="Product Image">
+            <Upload
+              beforeUpload={(file) => { setImageFile(file); return false; }}
+              maxCount={1}
+              accept="image/*"
+              listType="picture"
+              onRemove={() => setImageFile(null)}
+            >
+              <Button icon={<UploadOutlined />}>Select Image</Button>
+            </Upload>
+          </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        open={!!previewImage}
+        footer={null}
+        onCancel={() => setPreviewImage(null)}
+        width="80%"
+        centered
+        styles={{ body: { padding: 0 } }}
+      >
+        {previewImage && (
+          <Row gutter={0}>
+            <Col span={16} style={{ background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+              <img src={previewImage.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }} />
+            </Col>
+            <Col span={8} style={{ padding: 24 }}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Title level={4} style={{ margin: 0, color: '#2B3A67' }}>{previewImage.name}</Title>
+                {previewImage.description && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 4 }}>Description</Text>
+                    <Text type="secondary">{previewImage.description}</Text>
+                  </div>
+                )}
+                {previewImage.price != null && (
+                  <Text strong style={{ fontSize: 18, color: '#27AE60' }}>{previewImage.price} DT</Text>
+                )}
+                {previewImage.stock != null && (
+                  <Tag color={previewImage.stock > 0 ? 'green' : 'red'}>
+                    {previewImage.stock > 0 ? `${previewImage.stock} in stock` : 'Out of stock'}
+                  </Tag>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        )}
       </Modal>
     </div>
   );

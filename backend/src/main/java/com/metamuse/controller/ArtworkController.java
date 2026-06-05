@@ -3,8 +3,11 @@ package com.metamuse.controller;
 import com.metamuse.model.Artwork;
 import com.metamuse.model.Catalogue;
 import com.metamuse.model.Category;
+import com.metamuse.model.User;
+import com.metamuse.repository.ArtworkRepository;
 import com.metamuse.repository.CatalogueRepository;
 import com.metamuse.repository.CategoryRepository;
+import com.metamuse.repository.UserRepository;
 import com.metamuse.service.ArtworkService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -22,8 +25,10 @@ import java.util.stream.Collectors;
 public class ArtworkController {
 
     private final ArtworkService artworkService;
+    private final ArtworkRepository artworkRepository;
     private final CategoryRepository categoryRepository;
     private final CatalogueRepository catalogueRepository;
+    private final UserRepository userRepository;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllArtworks() {
@@ -41,13 +46,12 @@ public class ArtworkController {
 
     @GetMapping("/{id}/image")
     public ResponseEntity<byte[]> getArtworkImage(@PathVariable Long id) {
-        try {
-            Artwork artwork = artworkService.findById(id);
-            if (artwork.getImage() == null) return ResponseEntity.notFound().build();
-            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(artwork.getImage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        Artwork artwork = artworkRepository.findById(id).orElse(null);
+        if (artwork == null || artwork.getImage() == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .body(artwork.getImage());
     }
 
     @GetMapping("/search")
@@ -83,12 +87,20 @@ public class ArtworkController {
                                                 Authentication auth) {
         String userId = (String) auth.getPrincipal();
         try {
-            artworkService.updateWithPermission(id, null, null, null, null, null, userId, file, null, null, null);
-            return ResponseEntity.ok(Map.of("message", "Image uploaded"));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            Artwork artwork = artworkRepository.findById(id).orElse(null);
+            if (artwork == null) return ResponseEntity.notFound().build();
+
+            User currentUser = userRepository.findById(userId).orElseThrow();
+            if (!currentUser.getRole().name().equals("ADMIN") &&
+                !artwork.getArtist().getIdNumber().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+
+            artwork.setImage(file.getBytes());
+            artworkRepository.save(artwork);
+            return ResponseEntity.ok(Map.of("message", "Image uploaded", "size", file.getSize()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed: " + e.getMessage()));
         }
     }
 

@@ -54,10 +54,27 @@ public class UserController {
     public ResponseEntity<?> uploadProfilePicture(@RequestParam("file") MultipartFile file, Authentication auth) {
         String userId = (String) auth.getPrincipal();
         try {
-            User user = userService.updateProfilePicture(userId, file);
+            User user = userService.findByIdNumber(userId);
+            user.setProfileImage(file.getBytes());
+            user.setProfilePicture("/api/users/profile-picture/" + userId);
+            userService.add(user);
             return ResponseEntity.ok(Map.of("message", "Profile picture updated", "profilePicture", user.getProfilePicture()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to upload: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/profile-picture/{userId}")
+    public ResponseEntity<byte[]> getProfilePicture(@PathVariable String userId) {
+        try {
+            User user = userService.findByIdNumber(userId);
+            if (user.getProfileImage() == null) return ResponseEntity.notFound().build();
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.IMAGE_JPEG)
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .body(user.getProfileImage());
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.notFound().build();
         }
     }
 }

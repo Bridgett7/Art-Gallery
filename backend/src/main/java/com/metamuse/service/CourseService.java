@@ -91,6 +91,15 @@ public class CourseService implements IService<Course> {
         lessonRepository.deleteById(lessonId);
     }
 
+    public java.util.Optional<Lesson> getLessonById(Long id) {
+        return lessonRepository.findById(id);
+    }
+
+    @Transactional
+    public Lesson updateLesson(Lesson lesson) {
+        return lessonRepository.save(lesson);
+    }
+
     // --- Planning ---
 
     public List<Planning> getAllPlanning() {

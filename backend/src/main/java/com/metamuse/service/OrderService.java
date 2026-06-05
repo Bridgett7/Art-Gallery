@@ -78,6 +78,35 @@ public class OrderService implements IService<Order> {
         return orderRepository.findByUserIdNumberAndStatus(userId, OrderStatus.PENDING).orElse(null);
     }
 
+    /**
+     * Auto-progress orders based on time:
+     * CONFIRMED for 2+ days → SHIPPED
+     * SHIPPED for 3+ days → DELIVERED
+     */
+    @Transactional
+    public void autoProgressOrders() {
+        LocalDate today = LocalDate.now();
+        List<Order> confirmed = orderRepository.findByStatus(OrderStatus.CONFIRMED);
+        for (Order order : confirmed) {
+            if (order.getOrderDate() != null && order.getOrderDate().plusDays(2).isBefore(today)) {
+                order.setStatus(OrderStatus.SHIPPED);
+                orderRepository.save(order);
+                notificationService.create(order.getUser().getIdNumber(), "Order Shipped",
+                        "Your order #" + order.getId() + " has been shipped! 🚚");
+            }
+        }
+
+        List<Order> shipped = orderRepository.findByStatus(OrderStatus.SHIPPED);
+        for (Order order : shipped) {
+            if (order.getOrderDate() != null && order.getOrderDate().plusDays(5).isBefore(today)) {
+                order.setStatus(OrderStatus.DELIVERED);
+                orderRepository.save(order);
+                notificationService.create(order.getUser().getIdNumber(), "Order Delivered",
+                        "Your order #" + order.getId() + " has been delivered! ✅");
+            }
+        }
+    }
+
     @Transactional
     public Order createForUser(String userId, String deliveryLocation) {
         User user = userRepository.findById(userId)
