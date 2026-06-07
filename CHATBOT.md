@@ -1,179 +1,296 @@
-# MetaMuse Chatbot — Spécification
+# MetaMuse Chatbot — Architecture & NLP Pipeline
 
-## Objectif
+## Vue d'ensemble
 
-Assistant IA intégré à la plateforme MetaMuse qui aide les utilisateurs à naviguer, découvrir du contenu, gérer leurs commandes et obtenir des informations sur la galerie. Le chatbot est contextuel : il a accès aux données de l'application pour fournir des réponses personnalisées.
+Le chatbot MetaMuse est un assistant conversationnel intégré à la plateforme. Il combine deux approches NLP complémentaires :
+
+- **NLTK** pour l'extraction structurée d'entités (regex, POS tagging)
+- **Sentence-Transformers** pour la compréhension sémantique des intentions (embeddings)
+
+Le chatbot est bilingue (FR/EN), contextuel (adapté au rôle utilisateur) et connecté aux données live de l'application.
 
 ---
 
 ## Architecture Technique
 
-### Backend
-- **Service** : `ChatService` — orchestre les requêtes, accède aux données, appelle le LLM
-- **Controller** : `ChatController` — endpoint REST `/api/chat`
-- **Modèle** : `ChatMessage` — historique des conversations (persisté en base)
-- **LLM** : OpenAI GPT-4o (ou Mistral/LLaMA en alternative open source)
-
-### Frontend
-- **Composant** : Widget flottant (bulle en bas à droite)
-- **UI** : Drawer ou popup avec historique de conversation
-- **Suggestions** : Boutons cliquables de questions fréquentes
-
-### Intégration
-- Le chatbot a accès en lecture aux données de l'utilisateur connecté (commandes, tickets, profil)
-- Il peut interroger les entités publiques (artworks, events, courses, products)
-- Il ne peut PAS modifier de données (lecture seule)
-
----
-
-## Types de Questions Supportées
-
-### 1. Navigation & Aide Générale
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Comment créer un compte ?" | "Cliquez sur Register depuis la page de connexion. Choisissez votre rôle (Visitor ou Artist), remplissez vos informations et validez." |
-| "Comment changer mon mot de passe ?" | "Allez dans votre profil (Account) et utilisez la section 'Change Password'. Vous pouvez aussi utiliser 'Forgot Password' depuis la page de connexion." |
-| "Quels sont les rôles disponibles ?" | "Il y a 3 rôles : Visitor (achat, consultation), Artist (création de contenu + achat), Admin (gestion complète)." |
-| "Comment contacter le support ?" | "Vous pouvez poster dans le Forum ou envoyer un message dans les Discussions." |
-
-### 2. Artworks & Galerie
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quels artworks sont disponibles ?" | Liste les artworks récents avec titre, artiste et catégorie. |
-| "Montre-moi les œuvres de [artiste]" | Filtre et affiche les œuvres de cet artiste. |
-| "Quelles catégories d'art existent ?" | Liste les catégories disponibles (peinture, sculpture, etc.) |
-| "Comment ajouter une œuvre ?" | "En tant qu'artiste, allez dans Artworks et cliquez 'Add'. Remplissez le titre, description, année et uploadez une image." |
-
-### 3. Exhibitions & Événements
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quels événements sont à venir ?" | Liste les événements PUBLISHED avec dates et lieu. |
-| "Y a-t-il des événements en cours ?" | Liste les événements ONGOING. |
-| "Combien coûte un ticket pour [événement] ?" | Affiche le prix visitor et artist pour cet événement. |
-| "Comment acheter un ticket ?" | "Allez dans Exhibitions, trouvez l'événement et cliquez 'Buy Ticket'. Le prix dépend de votre rôle." |
-| "Combien de places restent pour [événement] ?" | Calcule capacité - tickets vendus. |
-
-### 4. Marketplace & Commandes
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quels produits sont en stock ?" | Liste les produits avec stock > 0. |
-| "Où en est ma commande ?" | Affiche le statut de la dernière commande de l'utilisateur. |
-| "Combien j'ai dépensé au total ?" | Calcule le total des commandes DELIVERED. |
-| "Comment passer commande ?" | "Ajoutez des produits au panier depuis le Marketplace, puis allez dans Orders et cliquez 'Place Order'." |
-| "Puis-je annuler ma commande ?" | "Oui, tant qu'elle est en statut PENDING. Allez dans Orders et cliquez 'Cancel Order'." |
-| "Comment télécharger ma facture ?" | "Dans le détail de votre commande (statut CONFIRMED ou plus), cliquez 'Download Invoice'." |
-
-### 5. Cours & Planning
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quels cours sont disponibles ?" | Liste les cours avec niveau et prix. |
-| "Y a-t-il des cours pour débutants ?" | Filtre les cours BEGINNER. |
-| "Quand est le prochain cours planifié ?" | Cherche dans le planning la prochaine séance SCHEDULED. |
-| "Comment créer un cours ?" | "En tant qu'artiste, allez dans Courses > My Courses et cliquez 'Add Course'. Ajoutez ensuite des leçons." |
-
-### 6. Compte & Profil
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quel est mon rôle ?" | Affiche le rôle de l'utilisateur connecté. |
-| "Combien de tickets j'ai achetés ?" | Compte les tickets de l'utilisateur. |
-| "Montre-moi mes notifications" | Résume les notifications non lues. |
-| "Comment changer ma photo de profil ?" | "Allez dans Account/Profile et cliquez sur l'avatar pour uploader une nouvelle photo." |
-
-### 7. Statistiques (Admin)
-
-| Question utilisateur | Réponse attendue |
-|---------------------|------------------|
-| "Quel est le chiffre d'affaires total ?" | Affiche totalRevenue (commandes + tickets). |
-| "Combien de commandes sont en attente ?" | Compte les commandes PENDING. |
-| "Combien d'utilisateurs sont inscrits ?" | Affiche le nombre total d'utilisateurs. |
-| "Quel événement a le plus de ventes ?" | Trouve l'événement avec le plus de tickets vendus. |
+```
+┌─────────────────────────────────────────────────────────┐
+│                     FRONTEND (React)                     │
+│  ChatWidget.tsx → POST /chat {message, lang, role}      │
+└────────────────────────────┬────────────────────────────┘
+                             │ HTTP
+                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                  CHATBOT API (Flask :5000)               │
+│                                                         │
+│  routes.py → nlp_engine.py → responses.py               │
+└────────────────────────────┬────────────────────────────┘
+                             │ HTTP (si données live nécessaires)
+                             ▼
+┌─────────────────────────────────────────────────────────┐
+│               BACKEND (Spring Boot :8080)                │
+│  /api/artworks, /api/events, /api/orders, etc.          │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Suggestions Affichées (Boutons Cliquables)
-
-### Pour VISITOR
-- "📦 Où en est ma commande ?"
-- "🎫 Événements à venir"
-- "🛒 Produits populaires"
-- "📚 Cours disponibles"
-- "❓ Comment acheter un ticket ?"
-
-### Pour ARTIST
-- "🎨 Mes œuvres"
-- "📅 Mon prochain cours planifié"
-- "📦 Mes commandes"
-- "🎫 Événements à venir"
-- "➕ Comment créer un cours ?"
-
-### Pour ADMIN
-- "📊 Chiffre d'affaires"
-- "📦 Commandes en attente"
-- "👥 Nombre d'utilisateurs"
-- "🎫 Ventes de tickets aujourd'hui"
-- "📈 Tendance des revenus"
-
----
-
-## Format des Réponses
-
-Le chatbot répond en :
-- **Texte court** pour les questions simples
-- **Listes formatées** pour les résultats multiples (max 5 items, avec lien "voir plus")
-- **Cartes résumées** pour les entités (artwork, event, order) avec infos clés
-- **Actions suggérées** : boutons pour naviguer vers la page concernée
-
----
-
-## Historique & Contexte
-
-- Les conversations sont persistées par utilisateur
-- Le chatbot garde le contexte de la session (dernières 10 messages)
-- L'utilisateur peut effacer son historique
-- Le chatbot connaît le rôle et le nom de l'utilisateur
-
----
-
-## Limites
-
-- Le chatbot ne peut PAS créer, modifier ou supprimer des données
-- Il ne donne PAS de conseils financiers ou juridiques
-- Il redirige vers le forum pour les questions hors-scope
-- Réponses limitées au domaine MetaMuse (galerie d'art, commandes, événements)
-
----
-
-## Endpoint API
+## Pipeline NLP — Étape par étape
 
 ```
-POST /api/chat
-Authorization: Bearer <token>
+        ┌────────────────────────────────┐
+        │        Message Utilisateur      │
+        │  "Quel est le chiffre d'affaires ?"  │
+        └───────────────┬────────────────┘
+                        │
+                        ▼
+        ┌────────────────────────────────┐
+        │   1. EXTRACTION D'ENTITÉS      │
+        │         (NLTK)                 │
+        │                                │
+        │  • Tokenisation (word_tokenize)│
+        │  • Regex: commande #123,       │
+        │    montants (20.5 DT),         │
+        │    dates (12/06/2026)          │
+        │  • POS Tagging: noms propres   │
+        │                                │
+        │  Résultat: {order_id: "123"}   │
+        └───────────────┬────────────────┘
+                        │
+                        ▼
+        ┌────────────────────────────────┐
+        │   2. ENCODAGE SÉMANTIQUE       │
+        │   (Sentence-Transformers)      │
+        │                                │
+        │  Modèle: all-MiniLM-L6-v2     │
+        │  • 22 Mo, pas de GPU requis    │
+        │  • Multilingue (FR/EN/+)       │
+        │  • Encode en vecteur 384 dims  │
+        │                                │
+        │  "chiffre d'affaires" →        │
+        │  [0.12, -0.34, 0.56, ...]     │
+        └───────────────┬────────────────┘
+                        │
+                        ▼
+        ┌────────────────────────────────┐
+        │   3. DÉTECTION D'INTENT        │
+        │     (Cosine Similarity)        │
+        │                                │
+        │  Compare le vecteur du message │
+        │  avec les embeddings pré-      │
+        │  calculés de chaque intent     │
+        │                                │
+        │  stats:         0.89 ← BEST    │
+        │  ticket_price:  0.42           │
+        │  list_orders:   0.31           │
+        │  greeting:      0.08           │
+        │                                │
+        │  Seuil: > 0.35 = match        │
+        │  Résultat: intent="stats"      │
+        │            confiance=0.89      │
+        └───────────────┬────────────────┘
+                        │
+                        ▼
+        ┌────────────────────────────────┐
+        │   4. GÉNÉRATION DE RÉPONSE     │
+        │     (Response Generator)       │
+        │                                │
+        │  • Vérifie le rôle (ADMIN?)    │
+        │  • Intent statique ou          │
+        │    dynamique ?                 │
+        │  • Si dynamique → appelle      │
+        │    l'API backend pour les      │
+        │    données live                │
+        │  • Génère la réponse dans la   │
+        │    langue demandée (FR/EN)     │
+        │  • Ajoute des suggestions      │
+        │    cliquables                  │
+        │                                │
+        │  Résultat:                     │
+        │  "📊 Statistiques :            │
+        │   • Revenue: 1250.00 DT       │
+        │   • Commandes: 23             │
+        │   • Événements: 5"            │
+        └────────────────────────────────┘
+```
+
+---
+
+## Pourquoi combiner NLTK + Transformers ?
+
+| Composant | Rôle | Forces |
+|-----------|------|--------|
+| **NLTK** | Extraction d'entités | Regex précis pour IDs, montants, dates. POS tagging pour noms propres. Rapide, déterministe. |
+| **Sentence-Transformers** | Compréhension d'intention | Comprend les synonymes et reformulations. "Y a quoi comme expos ?" = "Quels événements sont à venir ?". Multilingue natif. |
+
+### Exemple de complémentarité
+
+Message : "Où en est ma commande #456 ?"
+
+1. **NLTK** extrait : `{order_id: "456"}` (regex)
+2. **Transformers** détecte : `intent = "order_status"` (cosine 0.91)
+3. **Response** utilise l'ID 456 pour appeler `/api/orders/456` et retourner le statut réel
+
+---
+
+## Intents Supportés (20+)
+
+| Catégorie | Intents | Exemples |
+|-----------|---------|----------|
+| Général | `greeting`, `farewell`, `help` | "Bonjour", "Au revoir", "Aide" |
+| Artworks | `list_artworks`, `create_artwork` | "Quels artworks ?", "Créer une œuvre" |
+| Événements | `list_events`, `event_ongoing`, `buy_ticket`, `ticket_price` | "Expos à venir", "Acheter un ticket" |
+| Commandes | `order_status`, `cancel_order`, `download_invoice` | "Ma commande", "Annuler", "Facture" |
+| Marketplace | `list_products`, `add_to_cart` | "Produits dispo", "Ajouter au panier" |
+| Cours | `list_courses`, `course_beginner`, `planning` | "Cours débutant", "Planning" |
+| Compte | `my_profile`, `change_password`, `my_notifications` | "Mon profil", "Mes notifications" |
+| Admin | `stats`, `user_count` | "Chiffre d'affaires", "Nombre d'utilisateurs" |
+
+---
+
+## Embeddings pré-calculés
+
+Au démarrage du chatbot :
+1. Chaque intent a 6-10 phrases exemples
+2. Le modèle encode chaque phrase en vecteur 384D
+3. On calcule la **moyenne** des vecteurs par intent → 1 embedding représentatif par intent
+4. Ces embeddings sont stockés en mémoire (pas de BDD nécessaire)
+
+```python
+# Exemple simplifié
+INTENT_EXAMPLES = {
+    "stats": [
+        "chiffre d'affaires", "revenue total", "combien on a gagné",
+        "statistiques", "analytics", "bilan des ventes"
+    ]
+}
+# → embedding["stats"] = mean(encode(examples)) → vecteur [384 dims]
+```
+
+---
+
+## Gestion des rôles
+
+Le chatbot adapte ses réponses selon le rôle :
+
+| Intent | VISITOR | ARTIST | ADMIN |
+|--------|---------|--------|-------|
+| `stats` | ⚠️ "Réservé aux admins" | ⚠️ "Réservé aux admins" | 📊 Stats complètes |
+| `create_artwork` | ⚠️ "Réservé aux artistes" | ✅ Instructions | ✅ Instructions |
+| `list_events` | ✅ Liste publique | ✅ Liste publique | ✅ Liste publique |
+| `order_status` | ✅ Ses commandes | ✅ Ses commandes | ✅ Toutes les commandes |
+
+---
+
+## Bilingue FR/EN
+
+Le frontend envoie `lang: "fr"` ou `lang: "en"` basé sur la langue de l'interface (i18next).
+
+```python
+# Helper de traduction
+def t(fr: str, en: str, lang: str) -> str:
+    return fr if lang == "fr" else en
+
+# Usage
+reply = t("Aucun événement à venir.", "No upcoming events.", lang)
+```
+
+Toutes les réponses, suggestions et messages d'erreur sont disponibles dans les deux langues.
+
+---
+
+## Données Live (Dynamic Intents)
+
+Certains intents nécessitent des données fraîches de l'application :
+
+```
+User: "Quels événements sont à venir ?"
+  → intent: list_events (dynamique)
+  → Frontend appelle /api/events/upcoming
+  → Renvoie les données au chatbot
+  → Chatbot formate la réponse avec les vrais événements
+```
+
+**Flow complet pour un intent dynamique :**
+1. User envoie message → Chatbot détecte intent `list_events`
+2. Chatbot retourne `{needsData: true, dataType: "list_events"}`
+3. Frontend appelle l'API Spring Boot correspondante
+4. Frontend renvoie les données au chatbot
+5. Chatbot génère la réponse formatée avec les données réelles
+
+---
+
+## Fichiers du projet
+
+| Fichier | Rôle |
+|---------|------|
+| `app/nlp_engine.py` | Pipeline NLP (tokenisation, embeddings, cosine similarity) |
+| `app/responses.py` | Génération de réponses bilingues, role-aware |
+| `app/routes.py` | Endpoints Flask API |
+| `app/main.py` | Configuration Flask |
+| `setup.py` | Installation initiale (NLTK data + modèle) |
+| `run.py` | Point d'entrée |
+| `requirements.txt` | Dépendances Python |
+
+---
+
+## API Endpoint
+
+```
+POST http://localhost:5000/chat/message
 Content-Type: application/json
 
 {
   "message": "Quels événements sont à venir ?",
-  "sessionId": "optional-session-id"
+  "userId": "USR123",
+  "role": "VISITOR",
+  "username": "Alice",
+  "lang": "fr",
+  "data": null
 }
 
-Response:
+→ Response:
 {
-  "reply": "Voici les événements à venir : ...",
-  "suggestions": ["🎫 Acheter un ticket", "📅 Voir le planning"],
-  "data": [...],  // optional structured data
-  "sessionId": "abc123"
+  "intent": "list_events",
+  "confidence": 0.87,
+  "reply": "🎫 Événements à venir :\n• Event1 — 2026-06-15 @ Tunis\n• Event2 — ...",
+  "suggestions": ["🎫 Acheter un ticket", "📅 Planning"],
+  "entities": {},
+  "needsData": false,
+  "dataType": null
 }
 ```
 
 ---
 
-## Implémentation Prévue
+## Installation & Lancement
 
-1. **Phase 1** : Chatbot rule-based (pattern matching sur les questions fréquentes)
-2. **Phase 2** : Intégration LLM (OpenAI/Mistral) avec RAG sur les données de l'app
-3. **Phase 3** : Actions conversationnelles (acheter un ticket via le chat, etc.)
+```bash
+cd chatbot
+
+# 1. Environnement virtuel (recommandé)
+py -3.12 -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Linux/Mac
+
+# 2. Dépendances
+pip install -r requirements.txt
+
+# 3. Setup initial (NLTK data + télécharge le modèle 22Mo)
+python setup.py
+
+# 4. Lancer
+python run.py
+# → http://localhost:5000
+# → Health check: GET http://localhost:5000/health
+```
+
+---
+
+## Performance
+
+- **Temps de réponse** : ~50-100ms par message (CPU)
+- **Mémoire** : ~200 Mo (modèle chargé en RAM)
+- **Précision** : ~85-90% sur les intents testés
+- **Seuil de confiance** : 0.35 (en dessous → "unknown")
+- **Pas de GPU requis** — fonctionne sur un laptop standard

@@ -315,9 +315,9 @@ export default function Events() {
                   onClick={() => handleViewEvent(event)}
                   actions={
                     (user?.role === 'ADMIN' || user?.role === 'ARTIST') ? [
-                      <EditOutlined onClick={() => handleEdit(event)} />,
-                      <Popconfirm title={t('common.deleteConfirm')} onConfirm={() => handleDelete(event.id)}>
-                        <DeleteOutlined />
+                      <EditOutlined onClick={(e) => { e.stopPropagation(); handleEdit(event); }} />,
+                      <Popconfirm title={t('common.deleteConfirm')} onConfirm={() => handleDelete(event.id)} onPopupClick={(e) => e?.stopPropagation()}>
+                        <DeleteOutlined onClick={(e) => e.stopPropagation()} />
                       </Popconfirm>,
                     ] : undefined
                   }

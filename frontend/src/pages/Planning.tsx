@@ -193,7 +193,9 @@ export default function Planning() {
                   <Space direction="vertical" size={2}>
                     <Space>
                       <Text strong>🎨 {event.name}</Text>
-                      <Tag color="gold">{event.status}</Tag>
+                      <Tag color="gold">
+                        {event.status === 'PUBLISHED' ? t('status.published') : event.status === 'ONGOING' ? t('status.ongoing') : event.status === 'COMPLETED' ? t('status.completed') : event.status}
+                      </Tag>
                     </Space>
                     {event.theme && <Text type="secondary">{event.theme}</Text>}
                     <Text type="secondary">
@@ -213,7 +215,9 @@ export default function Planning() {
                   <Space direction="vertical" size={2}>
                     <Space>
                       <Text strong>{item.course || 'No course'}</Text>
-                      <Tag color={statusColor(item.status)}>{item.status}</Tag>
+                      <Tag color={statusColor(item.status)}>
+                        {item.status === 'SCHEDULED' ? t('status.scheduled') : item.status === 'COMPLETED' ? t('status.completed') : item.status === 'CANCELLED' ? t('status.cancelled') : item.status}
+                      </Tag>
                     </Space>
                     {item.lesson && <Text type="secondary">Lesson: {item.lesson}</Text>}
                     <Text type="secondary">

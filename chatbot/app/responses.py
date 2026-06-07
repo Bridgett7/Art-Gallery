@@ -1,52 +1,61 @@
 """
-Response generator — maps intents to response templates.
-Responses are role-aware and can be static or dynamic.
+Bilingual response generator (FR/EN).
+Maps intents to response templates, role-aware and language-aware.
 """
 
 from typing import Dict, List, Optional
 
+# --- Bilingual text helper ---
+def t(fr: str, en: str, lang: str) -> str:
+    return fr if lang == "fr" else en
 
-def get_suggestions_for_role(role: str) -> List[str]:
-    """Get default suggestions based on user role."""
+
+def get_suggestions_for_role(role: str, lang: str) -> List[str]:
     if role == "ADMIN":
-        return ["� Chiffre d'affaires", "📦 Commandes en attente", "👥 Utilisateurs", "🎫 Ventes tickets"]
+        return [
+            t("📊 Chiffre d'affaires", "📊 Revenue", lang),
+            t("📦 Commandes en attente", "📦 Pending orders", lang),
+            t("👥 Utilisateurs", "👥 Users", lang),
+            t("🎫 Ventes tickets", "🎫 Ticket sales", lang),
+        ]
     elif role == "ARTIST":
-        return ["🎨 Mes œuvres", "📅 Mon planning", "📦 Mes commandes", "🎫 Événements"]
-    else:  # VISITOR
-        return ["🛒 Produits disponibles", "🎫 Événements à venir", "📦 Mes commandes", "❓ Aide"]
+        return [
+            t("🎨 Mes œuvres", "🎨 My artworks", lang),
+            t("📅 Mon planning", "📅 My schedule", lang),
+            t("📦 Mes commandes", "📦 My orders", lang),
+            t("🎫 Événements", "🎫 Events", lang),
+        ]
+    else:
+        return [
+            t("🛒 Produits disponibles", "🛒 Available products", lang),
+            t("🎫 Événements à venir", "🎫 Upcoming events", lang),
+            t("📦 Mes commandes", "📦 My orders", lang),
+            t("❓ Aide", "❓ Help", lang),
+        ]
 
 
-def get_response(intent: str, data: Optional[Dict] = None, role: str = "VISITOR", username: str = "") -> Dict:
-    """
-    Generate a response based on intent, optional data, and user role.
-    """
-    # Check static response first (handles role-based access control)
-    static = _get_static_response(intent, role, username)
-
-    # If static returned a response (including access denied), use it
+def get_response(intent: str, data: Optional[Dict] = None, role: str = "VISITOR", username: str = "", lang: str = "fr") -> Dict:
+    static = _get_static_response(intent, role, username, lang)
     if static is not None:
         return static
 
-    # Dynamic responses with actual data
     if data and len(data) > 0:
-        return _build_dynamic_response(intent, data, role)
+        return _build_dynamic_response(intent, data, role, lang)
 
-    # Dynamic intent without data — signal that we need data
     if intent in DYNAMIC_INTENTS:
         return {
-            "reply": _get_dynamic_placeholder(intent),
-            "suggestions": get_suggestions_for_role(role),
+            "reply": _get_dynamic_placeholder(intent, lang),
+            "suggestions": get_suggestions_for_role(role, lang),
             "needsData": True,
             "dataType": intent
         }
 
     return {
-        "reply": "Je ne suis pas sûr de comprendre. 🤔",
-        "suggestions": get_suggestions_for_role(role)
+        "reply": t("Je ne suis pas sûr de comprendre. 🤔", "I'm not sure I understand. 🤔", lang),
+        "suggestions": get_suggestions_for_role(role, lang)
     }
 
 
-# Dynamic intents — these need data from the backend
 DYNAMIC_INTENTS = [
     "list_artworks", "list_events", "event_ongoing", "ticket_price",
     "order_status", "list_products", "list_courses", "course_beginner",
@@ -54,268 +63,280 @@ DYNAMIC_INTENTS = [
 ]
 
 
-def _get_static_response(intent: str, role: str, username: str) -> Dict:
-    """Get static response adapted to user role."""
+def _get_static_response(intent: str, role: str, username: str, lang: str) -> Optional[Dict]:
+    suggestions = get_suggestions_for_role(role, lang)
 
     if intent == "greeting":
         name_part = f" {username}" if username else ""
         return {
-            "reply": f"Bonjour{name_part} ! 👋 Je suis l'assistant MetaMuse. Comment puis-je vous aider ?",
-            "suggestions": get_suggestions_for_role(role)
+            "reply": t(
+                f"Bonjour{name_part} ! 👋 Je suis l'assistant MetaMuse. Comment puis-je vous aider ?",
+                f"Hello{name_part}! 👋 I'm the MetaMuse assistant. How can I help you?",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "farewell":
         return {
-            "reply": "Au revoir ! N'hésitez pas à revenir si vous avez d'autres questions. 🎨",
+            "reply": t(
+                "Au revoir ! N'hésitez pas à revenir. 🎨",
+                "Goodbye! Don't hesitate to come back. 🎨",
+                lang
+            ),
             "suggestions": []
         }
 
     elif intent == "help":
         if role == "ADMIN":
-            reply = ("Voici ce que je peux faire pour vous (Admin) :\n\n"
-                     "• 📊 Consulter les statistiques globales\n"
-                     "• 📦 Gérer toutes les commandes\n"
-                     "• 👥 Voir les utilisateurs inscrits\n"
-                     "• 🎨 Gérer les artworks, événements, cours\n"
-                     "• 🎫 Voir les ventes de tickets\n\n"
-                     "Posez-moi une question !")
+            reply = t(
+                "Voici ce que je peux faire (Admin) :\n\n• 📊 Stats globales\n• 📦 Gérer les commandes\n• 👥 Utilisateurs\n• 🎨 Artworks, événements, cours\n• 🎫 Ventes de tickets",
+                "Here's what I can do (Admin):\n\n• 📊 Global stats\n• 📦 Manage orders\n• 👥 Users\n• 🎨 Artworks, events, courses\n• 🎫 Ticket sales",
+                lang
+            )
         elif role == "ARTIST":
-            reply = ("Voici ce que je peux faire pour vous (Artiste) :\n\n"
-                     "• 🎨 Gérer vos artworks et les mettre en vente\n"
-                     "• � Créer et gérer vos cours\n"
-                     "• 🎫 Créer des événements\n"
-                     "• 📦 Suivre vos commandes\n"
-                     "• 📅 Consulter le planning\n\n"
-                     "Posez-moi une question !")
+            reply = t(
+                "Voici ce que je peux faire (Artiste) :\n\n• 🎨 Gérer vos artworks\n• 📚 Créer des cours\n• 🎫 Créer des événements\n• 📦 Suivre vos commandes\n• 📅 Planning",
+                "Here's what I can do (Artist):\n\n• 🎨 Manage your artworks\n• 📚 Create courses\n• 🎫 Create events\n• 📦 Track your orders\n• 📅 Planning",
+                lang
+            )
         else:
-            reply = ("Voici ce que je peux faire pour vous :\n\n"
-                     "• 🎨 Consulter les artworks de la galerie\n"
-                     "• 🎫 Voir les événements et acheter des tickets\n"
-                     "• 🛒 Explorer le marketplace et acheter\n"
-                     "• 📦 Suivre vos commandes\n"
-                     "• 📚 Découvrir les cours disponibles\n\n"
-                     "Posez-moi une question !")
-        return {"reply": reply, "suggestions": get_suggestions_for_role(role)}
+            reply = t(
+                "Voici ce que je peux faire :\n\n• 🎨 Voir la galerie\n• 🎫 Événements & tickets\n• 🛒 Marketplace\n• 📦 Suivre vos commandes\n• 📚 Cours disponibles",
+                "Here's what I can do:\n\n• 🎨 Browse gallery\n• 🎫 Events & tickets\n• 🛒 Marketplace\n• 📦 Track your orders\n• 📚 Available courses",
+                lang
+            )
+        return {"reply": reply, "suggestions": suggestions}
 
     elif intent == "create_artwork":
         if role == "VISITOR":
             return {
-                "reply": "⚠️ La création d'artworks est réservée aux **artistes** et **admins**.\n\n"
-                         "Vous pouvez consulter la galerie ou acheter des œuvres dans le marketplace.",
-                "suggestions": ["🎨 Voir la galerie", "🛒 Marketplace"]
+                "reply": t(
+                    "⚠️ La création d'artworks est réservée aux artistes et admins.",
+                    "⚠️ Creating artworks is reserved for artists and admins.",
+                    lang
+                ),
+                "suggestions": suggestions
             }
         return {
-            "reply": ("Pour créer un artwork :\n\n"
-                      "1. Allez dans **Artworks**\n"
-                      "2. Cliquez sur **+ Add Artwork**\n"
-                      "3. Remplissez titre, description, année\n"
-                      "4. Activez **For Sale** pour le vendre dans le marketplace\n"
-                      "5. Définissez le prix et le stock"),
-            "suggestions": ["🎨 Mes artworks", "🛒 Marketplace"]
+            "reply": t(
+                "Pour créer un artwork :\n1. Allez dans **Artworks**\n2. Cliquez **+ Add Artwork**\n3. Remplissez les infos et uploadez une image",
+                "To create an artwork:\n1. Go to **Artworks**\n2. Click **+ Add Artwork**\n3. Fill in the info and upload an image",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "buy_ticket":
         return {
-            "reply": ("Pour acheter un ticket :\n\n"
-                      "1. Allez dans **Exhibitions**\n"
-                      "2. Trouvez un événement (PUBLISHED ou ONGOING)\n"
-                      "3. Cliquez **Buy Ticket**\n\n"
-                      f"{'Le prix Artist est appliqué pour vous.' if role == 'ARTIST' else 'Le prix Visitor sera appliqué.'}"),
-            "suggestions": ["� Événements à venir", "🎫 Mes tickets"]
+            "reply": t(
+                "Pour acheter un ticket :\n1. **Exhibitions** → trouvez un événement\n2. Cliquez **Acheter un ticket**",
+                "To buy a ticket:\n1. **Exhibitions** → find an event\n2. Click **Buy Ticket**",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "cancel_order":
         return {
-            "reply": "Vous pouvez annuler une commande tant qu'elle est en statut **PENDING**.\n\n"
-                     "Allez dans **Orders** → ouvrez la commande → **Cancel Order**.",
-            "suggestions": ["� Mes commandes"]
+            "reply": t(
+                "Vous pouvez annuler une commande en statut **En attente**.\nOrders → ouvrez la commande → **Annuler**.",
+                "You can cancel an order with **Pending** status.\nOrders → open the order → **Cancel Order**.",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "download_invoice":
         return {
-            "reply": "La facture PDF est disponible une fois la commande **confirmée**.\n\n"
-                     "Orders → ouvrez la commande → **Download Invoice**.",
-            "suggestions": ["📦 Mes commandes"]
+            "reply": t(
+                "La facture est disponible après confirmation.\nOrders → ouvrez la commande → **Télécharger la facture**.",
+                "The invoice is available after confirmation.\nOrders → open the order → **Download Invoice**.",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "add_to_cart":
         return {
-            "reply": "Pour ajouter au panier :\n\n"
-                     "1. **Marketplace** → cliquez **Add to Cart**\n"
-                     "2. **Orders** pour voir votre panier et passer commande",
-            "suggestions": ["🛒 Marketplace", "📦 Mes commandes"]
+            "reply": t(
+                "**Marketplace** → cliquez **Ajouter au panier** sur un produit.",
+                "**Marketplace** → click **Add to Cart** on a product.",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "change_password":
         return {
-            "reply": "Pour changer votre mot de passe :\n\n"
-                     "• Connecté : **Account** → section mot de passe\n"
-                     "• Oublié : **Forgot Password** sur la page de connexion",
-            "suggestions": ["� Mon profil"]
+            "reply": t(
+                "**Compte** → section Mot de passe → changez votre mot de passe.",
+                "**Account** → Password section → change your password.",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     elif intent == "stats":
         if role != "ADMIN":
             return {
-                "reply": "📊 Les statistiques globales sont réservées aux administrateurs.\n\n"
-                         "Vous pouvez voir vos propres stats dans le **Dashboard**.",
-                "suggestions": ["📦 Mes commandes", "🎫 Mes tickets"]
+                "reply": t(
+                    "📊 Les stats globales sont réservées aux admins. Consultez votre Dashboard.",
+                    "📊 Global stats are for admins only. Check your Dashboard.",
+                    lang
+                ),
+                "suggestions": suggestions
             }
-        # ADMIN: needs dynamic data
         return None
 
     elif intent == "user_count":
         if role != "ADMIN":
             return {
-                "reply": "⚠️ Cette information est réservée aux administrateurs.",
-                "suggestions": get_suggestions_for_role(role)
+                "reply": t("⚠️ Information réservée aux admins.", "⚠️ Admin-only information.", lang),
+                "suggestions": suggestions
             }
-        # ADMIN: needs dynamic data
         return None
 
     elif intent == "unknown":
         return {
-            "reply": "Je ne suis pas sûr de comprendre. 🤔\n\n"
-                     "Essayez de me demander des infos sur les artworks, événements, commandes ou cours.",
-            "suggestions": get_suggestions_for_role(role)
+            "reply": t(
+                "Je ne suis pas sûr de comprendre. 🤔\nEssayez : artworks, événements, commandes, cours.",
+                "I'm not sure I understand. 🤔\nTry: artworks, events, orders, courses.",
+                lang
+            ),
+            "suggestions": suggestions
         }
 
     return None
 
 
-def _build_dynamic_response(intent: str, data: Dict, role: str) -> Dict:
-    """Build response using data from the backend."""
-    suggestions = get_suggestions_for_role(role)
+def _build_dynamic_response(intent: str, data: Dict, role: str, lang: str) -> Dict:
+    suggestions = get_suggestions_for_role(role, lang)
 
     if intent == "list_artworks":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun artwork trouvé dans la galerie.", "suggestions": suggestions}
-        text = "🎨 Artworks disponibles :\n\n"
+            return {"reply": t("Aucun artwork trouvé.", "No artworks found.", lang), "suggestions": suggestions}
+        text = t("🎨 Artworks disponibles :\n\n", "🎨 Available artworks:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('title', 'Sans titre')}** — {item.get('artist', 'Inconnu')}\n"
+            text += f"• **{item.get('title', '')}** — {item.get('artist', 'N/A')}\n"
         if len(items) > 5:
-            text += f"\n... et {len(items) - 5} autres."
-        return {"reply": text, "suggestions": ["🎨 Créer un artwork", "🛒 Marketplace"] if role != "VISITOR" else ["🛒 Marketplace"]}
+            text += t(f"\n... et {len(items)-5} autres.", f"\n... and {len(items)-5} more.", lang)
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "list_events":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun événement à venir pour le moment.", "suggestions": suggestions}
-        text = "🎫 Événements à venir :\n\n"
+            return {"reply": t("Aucun événement à venir.", "No upcoming events.", lang), "suggestions": suggestions}
+        text = t("🎫 Événements à venir :\n\n", "🎫 Upcoming events:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('name', '')}** — {item.get('startDate', '')} à {item.get('location', '')}\n"
-        return {"reply": text, "suggestions": ["🎫 Acheter un ticket", "� Planning"]}
+            text += f"• **{item.get('name', '')}** — {item.get('startDate', '')} @ {item.get('location', '')}\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "event_ongoing":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun événement en cours actuellement.", "suggestions": suggestions}
-        text = "🎫 Événements en cours :\n\n"
+            return {"reply": t("Aucun événement en cours.", "No ongoing events.", lang), "suggestions": suggestions}
+        text = t("🎫 Événements en cours :\n\n", "🎫 Ongoing events:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('name', '')}** — jusqu'au {item.get('endDate', '')} à {item.get('location', '')}\n"
-        return {"reply": text, "suggestions": ["🎫 Acheter un ticket"]}
+            text += f"• **{item.get('name', '')}** — {t('jusqu au', 'until', lang)} {item.get('endDate', '')}\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "order_status":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Vous n'avez aucune commande.", "suggestions": ["🛒 Marketplace"]}
-        text = "📦 Vos commandes :\n\n"
+            return {"reply": t("Aucune commande.", "No orders.", lang), "suggestions": suggestions}
+        text = t("📦 Vos commandes :\n\n", "📦 Your orders:\n\n", lang)
         for item in items[:5]:
-            text += f"• Commande **#{item.get('id', '')}** — {item.get('status', '')} ({item.get('total', 0):.2f} DT)\n"
-        return {"reply": text, "suggestions": ["� Marketplace", "📄 Télécharger facture"]}
+            text += f"• #{item.get('id', '')} — {item.get('status', '')} ({item.get('total', 0):.2f} DT)\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "list_products":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun produit disponible.", "suggestions": suggestions}
-        text = "🛒 Produits disponibles :\n\n"
+            return {"reply": t("Aucun produit disponible.", "No products available.", lang), "suggestions": suggestions}
+        text = t("🛒 Produits :\n\n", "🛒 Products:\n\n", lang)
         for item in items[:5]:
-            stock_info = f"({item.get('stock', 0)} en stock)" if item.get('stock', 0) > 0 else "(rupture)"
-            text += f"• **{item.get('name', '')}** — {item.get('price', 0)} DT {stock_info}\n"
-        return {"reply": text, "suggestions": ["🛒 Ajouter au panier"]}
+            text += f"• **{item.get('name', '')}** — {item.get('price', 0)} DT\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "list_courses":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun cours disponible.", "suggestions": suggestions}
-        text = "📚 Cours disponibles :\n\n"
+            return {"reply": t("Aucun cours disponible.", "No courses available.", lang), "suggestions": suggestions}
+        text = t("📚 Cours :\n\n", "📚 Courses:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('title', '')}** — {item.get('level', 'N/A')} ({item.get('price', 'Gratuit')} DT)\n"
-        if role != "VISITOR":
-            return {"reply": text, "suggestions": ["📚 Créer un cours", "📅 Planning"]}
-        return {"reply": text, "suggestions": ["📅 Planning"]}
+            text += f"• **{item.get('title', '')}** — {item.get('level', 'N/A')} ({item.get('price', 'Free')} DT)\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "course_beginner":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun cours débutant disponible.", "suggestions": ["📚 Tous les cours"]}
-        text = "📚 Cours pour débutants :\n\n"
+            return {"reply": t("Aucun cours débutant.", "No beginner courses.", lang), "suggestions": suggestions}
+        text = t("📚 Cours débutants :\n\n", "📚 Beginner courses:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('title', '')}** — {item.get('duration', '?')}h ({item.get('price', 'Gratuit')} DT)\n"
-        return {"reply": text, "suggestions": ["📚 Tous les cours", "📅 Planning"]}
+            text += f"• **{item.get('title', '')}** — {item.get('duration', '?')}h\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "planning":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucune séance planifiée.", "suggestions": suggestions}
-        text = "📅 Prochaines séances :\n\n"
+            return {"reply": t("Aucune séance planifiée.", "No sessions scheduled.", lang), "suggestions": suggestions}
+        text = t("📅 Prochaines séances :\n\n", "📅 Upcoming sessions:\n\n", lang)
         for item in items[:5]:
-            text += f"• **{item.get('course', '')}** — {item.get('startTime', '')} (Salle: {item.get('room', 'N/A')})\n"
-        return {"reply": text, "suggestions": ["📚 Cours"]}
+            text += f"• **{item.get('course', '')}** — {item.get('startTime', '')} ({t('Salle', 'Room', lang)}: {item.get('room', 'N/A')})\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "my_profile":
         profile = data.get("profile", {})
-        text = f"👤 Votre profil :\n\n"
-        text += f"• Nom : **{profile.get('username', 'N/A')}**\n"
+        text = t("👤 Votre profil :\n\n", "👤 Your profile:\n\n", lang)
+        text += f"• {t('Nom', 'Name', lang)} : **{profile.get('username', 'N/A')}**\n"
         text += f"• Email : {profile.get('email', 'N/A')}\n"
-        text += f"• Rôle : **{profile.get('role', 'N/A')}**\n"
-        return {"reply": text, "suggestions": ["🔑 Changer mot de passe"]}
+        text += f"• {t('Rôle', 'Role', lang)} : **{profile.get('role', 'N/A')}**\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "my_notifications":
         count = data.get("count", 0)
         if count == 0:
-            return {"reply": "✅ Aucune notification non lue.", "suggestions": suggestions}
-        return {"reply": f"🔔 Vous avez **{count}** notification(s) non lue(s).", "suggestions": suggestions}
+            return {"reply": t("✅ Aucune notification non lue.", "✅ No unread notifications.", lang), "suggestions": suggestions}
+        return {"reply": t(f"🔔 Vous avez **{count}** notification(s) non lue(s).", f"🔔 You have **{count}** unread notification(s).", lang), "suggestions": suggestions}
 
     elif intent == "stats":
         stats = data.get("stats", {})
         if not stats:
-            return {"reply": "Aucune statistique disponible.", "suggestions": suggestions}
-        text = "📊 Statistiques globales :\n\n"
-        text += f"• Revenue totale : **{stats.get('totalRevenue', 0):.2f} DT**\n"
-        text += f"• Commandes : **{stats.get('totalOrders', 0)}**\n"
-        text += f"• Événements : **{stats.get('totalEvents', 0)}**\n"
-        return {"reply": text, "suggestions": ["👥 Utilisateurs", "📦 Commandes"]}
+            return {"reply": t("Aucune statistique.", "No statistics available.", lang), "suggestions": suggestions}
+        text = t("📊 Statistiques :\n\n", "📊 Statistics:\n\n", lang)
+        text += f"• {t('Revenue totale', 'Total revenue', lang)} : **{stats.get('totalRevenue', 0):.2f} DT**\n"
+        text += f"• {t('Commandes', 'Orders', lang)} : **{stats.get('totalOrders', 0)}**\n"
+        text += f"• {t('Événements', 'Events', lang)} : **{stats.get('totalEvents', 0)}**\n"
+        text += f"• {t('Utilisateurs', 'Users', lang)} : **{stats.get('totalUsers', 0)}**\n"
+        return {"reply": text, "suggestions": suggestions}
 
     elif intent == "user_count":
         count = data.get("count", 0)
-        if count == 0 and not data:
-            return {"reply": "Information non disponible.", "suggestions": suggestions}
-        return {"reply": f"👥 Il y a **{count}** utilisateurs inscrits.", "suggestions": ["📊 Stats"]}
+        return {"reply": t(f"👥 Il y a **{count}** utilisateurs inscrits.", f"👥 There are **{count}** registered users.", lang), "suggestions": suggestions}
 
     elif intent == "ticket_price":
         items = data.get("items", [])
         if not items:
-            return {"reply": "Aucun événement avec billetterie trouvé.", "suggestions": suggestions}
-        text = "🎫 Tarifs :\n\n"
+            return {"reply": t("Aucun événement avec billetterie.", "No events with ticketing.", lang), "suggestions": suggestions}
+        text = t("🎫 Tarifs :\n\n", "🎫 Prices:\n\n", lang)
         for item in items[:5]:
             text += f"• **{item.get('name', '')}** — Visitor: {item.get('ticketPriceVisitor', 'N/A')} DT | Artist: {item.get('ticketPriceArtist', 'N/A')} DT\n"
-        return {"reply": text, "suggestions": ["🎫 Acheter un ticket"]}
+        return {"reply": text, "suggestions": suggestions}
 
-    return {"reply": "Je n'ai pas pu traiter cette demande.", "suggestions": suggestions}
+    return {"reply": t("Je n'ai pas pu traiter cette demande.", "I couldn't process this request.", lang), "suggestions": suggestions}
 
 
-def _get_dynamic_placeholder(intent: str) -> str:
-    """Placeholder messages for dynamic intents."""
-    placeholders = {
-        "list_artworks": "Je cherche les artworks disponibles...",
-        "list_events": "Je consulte les événements à venir...",
+def _get_dynamic_placeholder(intent: str, lang: str) -> str:
+    placeholders_fr = {
+        "list_artworks": "Je cherche les artworks...",
+        "list_events": "Je consulte les événements...",
         "event_ongoing": "Je vérifie les événements en cours...",
         "ticket_price": "Je cherche les tarifs...",
         "order_status": "Je vérifie vos commandes...",
         "list_products": "Je consulte le marketplace...",
-        "list_courses": "Je cherche les cours disponibles...",
+        "list_courses": "Je cherche les cours...",
         "course_beginner": "Je filtre les cours débutants...",
         "planning": "Je consulte le planning...",
         "my_profile": "Je récupère vos informations...",
@@ -323,4 +344,20 @@ def _get_dynamic_placeholder(intent: str) -> str:
         "stats": "Je calcule les statistiques...",
         "user_count": "Je compte les utilisateurs...",
     }
-    return placeholders.get(intent, "Traitement en cours...")
+    placeholders_en = {
+        "list_artworks": "Looking up artworks...",
+        "list_events": "Checking events...",
+        "event_ongoing": "Checking ongoing events...",
+        "ticket_price": "Looking up prices...",
+        "order_status": "Checking your orders...",
+        "list_products": "Browsing marketplace...",
+        "list_courses": "Searching courses...",
+        "course_beginner": "Filtering beginner courses...",
+        "planning": "Checking planning...",
+        "my_profile": "Getting your info...",
+        "my_notifications": "Checking notifications...",
+        "stats": "Computing statistics...",
+        "user_count": "Counting users...",
+    }
+    source = placeholders_fr if lang == "fr" else placeholders_en
+    return source.get(intent, t("Traitement en cours...", "Processing...", lang))

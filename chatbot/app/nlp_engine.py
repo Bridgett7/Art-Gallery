@@ -1,190 +1,212 @@
 """
-NLP Engine using NLTK for intent detection and entity extraction.
-Pipeline: Tokenization → Stopword removal → Lemmatization → Intent classification
+NLP Engine: NLTK + Sentence-Transformers pipeline.
+
+Pipeline:
+1. [NLTK] Tokenization → Entity extraction (regex + POS tagging)
+2. [Sentence-Transformers] Semantic intent detection via cosine similarity
+3. Combined: accurate entity extraction + flexible intent understanding
+
+Model: all-MiniLM-L6-v2 (22MB, multilingual, no GPU needed)
 """
 
 import nltk
 from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from typing import Dict, List, Tuple
 import re
+import numpy as np
 
-# Initialize NLTK components
+# Sentence-Transformers for semantic understanding
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Initialize components
 lemmatizer = WordNetLemmatizer()
 
-try:
-    stop_words_fr = set(stopwords.words('french'))
-except LookupError:
-    stop_words_fr = set()
+print("[NLP] Loading sentence-transformers model...")
+model = SentenceTransformer('all-MiniLM-L6-v2')
+print("[NLP] Model loaded.")
 
-try:
-    stop_words_en = set(stopwords.words('english'))
-except LookupError:
-    stop_words_en = set()
-
-STOP_WORDS = stop_words_fr | stop_words_en
-
-# Intent patterns — keywords and phrases mapped to intents
-INTENT_PATTERNS: Dict[str, List[str]] = {
-    "greeting": ["bonjour", "salut", "hello", "hi", "hey", "bonsoir", "coucou"],
-    "farewell": ["au revoir", "bye", "bientot", "merci", "thanks", "thank"],
-    "help": ["aide", "help", "comment", "how", "quoi faire", "guide", "fonctionnalite"],
-
-    # Artworks
-    "list_artworks": ["artwork", "oeuvre", "galerie", "gallery", "art disponible", "artworks"],
-    "create_artwork": ["creer artwork", "ajouter oeuvre", "add artwork", "nouvelle oeuvre", "creer oeuvre"],
-
-    # Events
-    "list_events": ["evenement", "event", "exhibition", "exposition", "venir", "upcoming", "evenements"],
-    "event_ongoing": ["en cours", "ongoing", "maintenant", "now", "actuel"],
-    "buy_ticket": ["ticket", "billet", "acheter ticket", "buy ticket", "reserver"],
-    "ticket_price": ["prix ticket", "combien coute", "ticket price", "tarif", "prix evenement"],
-
-    # Orders
-    "order_status": ["commande", "order", "statut", "status", "suivi", "tracking", "commandes"],
-    "cancel_order": ["annuler", "cancel", "annulation", "annuler commande"],
-    "download_invoice": ["facture", "invoice", "telecharger", "download", "pdf"],
-
-    # Marketplace
-    "list_products": ["produit", "product", "marketplace", "boutique", "shop", "stock", "produits"],
-    "add_to_cart": ["panier", "cart", "ajouter panier", "add cart"],
-
-    # Courses
-    "list_courses": ["cours", "course", "formation", "apprendre", "learn", "courses"],
-    "course_beginner": ["debutant", "beginner", "initiation"],
-
-    # Planning
-    "planning": ["planning", "calendrier", "schedule", "seance", "next lesson", "prochaine"],
-
-    # Account
-    "my_profile": ["profil", "profile", "compte", "account", "role"],
-    "change_password": ["mot de passe", "password", "changer password"],
-    "my_notifications": ["notification", "alerte", "alert", "notifications"],
-
-    # Stats (admin)
-    "stats": ["statistique", "stats", "chiffre affaire", "revenue", "revenu"],
-    "user_count": ["utilisateur", "user", "inscrit", "combien utilisateur"],
+# --- Intent definitions with example phrases (used for embedding) ---
+# Each intent has multiple example phrases that represent it.
+# The model computes embeddings for these, then compares user input.
+INTENT_EXAMPLES: Dict[str, List[str]] = {
+    "greeting": [
+        "bonjour", "salut", "hello", "hi", "hey", "bonsoir",
+        "bonjour comment ça va", "salut ça va", "hello there",
+    ],
+    "farewell": [
+        "au revoir", "bye", "à bientôt", "merci au revoir",
+        "thanks bye", "bonne journée", "ciao",
+    ],
+    "help": [
+        "aide", "help", "comment faire", "qu'est-ce que tu peux faire",
+        "quelles sont tes fonctionnalités", "guide", "how does this work",
+        "je ne sais pas quoi faire", "what can you do",
+    ],
+    "list_artworks": [
+        "quels artworks sont disponibles", "montre moi les oeuvres",
+        "les artworks de la galerie", "gallery artworks", "voir les oeuvres",
+        "qu'est-ce qu'il y a comme art", "show me artworks", "art disponible",
+    ],
+    "create_artwork": [
+        "créer un artwork", "ajouter une oeuvre", "comment créer une oeuvre",
+        "add new artwork", "je veux publier une oeuvre", "nouvelle creation",
+    ],
+    "list_events": [
+        "quels événements sont à venir", "les prochaines expositions",
+        "upcoming events", "y a quoi comme expos", "événements disponibles",
+        "prochains événements", "what events are coming", "exhibitions à venir",
+    ],
+    "event_ongoing": [
+        "événements en cours", "expos actuelles", "ongoing events",
+        "qu'est-ce qui se passe maintenant", "events happening now",
+    ],
+    "buy_ticket": [
+        "acheter un ticket", "je veux un billet", "buy ticket",
+        "réserver une place", "comment avoir un ticket", "purchase ticket",
+    ],
+    "ticket_price": [
+        "combien coûte un ticket", "prix du billet", "ticket price",
+        "tarif de l'événement", "how much is a ticket", "prix billet",
+        "tarif entrée", "entrance fee", "event ticket cost",
+    ],
+    "order_status": [
+        "où en est ma commande", "statut de ma commande", "order status",
+        "suivi commande", "mes commandes", "tracking", "my orders",
+    ],
+    "cancel_order": [
+        "annuler ma commande", "cancel order", "je veux annuler",
+        "comment annuler une commande", "cancellation",
+    ],
+    "download_invoice": [
+        "télécharger la facture", "download invoice", "ma facture",
+        "obtenir le pdf", "invoice pdf", "je veux ma facture",
+    ],
+    "list_products": [
+        "produits disponibles", "voir les produits", "marketplace",
+        "qu'est-ce qu'il y a à acheter", "boutique", "shop products",
+        "what products are available", "articles en vente",
+    ],
+    "add_to_cart": [
+        "ajouter au panier", "add to cart", "mettre dans le panier",
+        "je veux acheter ça", "put in cart",
+    ],
+    "list_courses": [
+        "cours disponibles", "quels cours", "formations",
+        "what courses are available", "voir les cours", "apprendre",
+    ],
+    "course_beginner": [
+        "cours pour débutant", "beginner courses", "cours initiation",
+        "je suis débutant", "cours facile", "easy courses",
+    ],
+    "planning": [
+        "planning", "calendrier des cours", "prochaine séance",
+        "schedule", "quand est le prochain cours", "next lesson",
+        "séances planifiées", "lesson calendar",
+    ],
+    "my_profile": [
+        "mon profil", "mes informations", "my profile", "my account",
+        "quel est mon rôle", "voir mon compte",
+    ],
+    "change_password": [
+        "changer mon mot de passe", "change password", "modifier password",
+        "oublié mon mot de passe", "reset password",
+    ],
+    "my_notifications": [
+        "mes notifications", "ai-je des notifications", "notifications",
+        "alertes", "check notifications", "unread messages",
+    ],
+    "stats": [
+        "statistiques", "chiffre d'affaires", "revenue total", "revenu",
+        "combien on a gagné", "dashboard stats", "analytics",
+        "performance", "bilan", "résultats", "chiffre affaires",
+        "total revenue", "how much revenue", "earnings",
+        "gains totaux", "combien a-t-on vendu", "sales report",
+        "rapport de ventes", "revenue globale",
+    ],
+    "user_count": [
+        "combien d'utilisateurs", "nombre d'inscrits", "user count",
+        "how many users", "total utilisateurs",
+    ],
 }
 
-
-def preprocess(text: str) -> List[str]:
-    """
-    NLP preprocessing pipeline:
-    1. Lowercase
-    2. Remove accents for matching
-    3. Tokenize
-    4. Remove stopwords
-    5. Lemmatize
-    """
-    # Normalize
-    text_clean = text.lower().strip()
-    # Remove accents for better matching
-    text_normalized = _remove_accents(text_clean)
-
-    # Tokenize
-    try:
-        tokens = word_tokenize(text_normalized, language='french')
-    except LookupError:
-        tokens = word_tokenize(text_normalized)
-
-    # Remove stopwords and punctuation
-    tokens = [t for t in tokens if t.isalnum() and t not in STOP_WORDS and len(t) > 1]
-
-    # Lemmatize
-    tokens = [lemmatizer.lemmatize(t) for t in tokens]
-
-    return tokens
+# Pre-compute intent embeddings (average of all example embeddings per intent)
+print("[NLP] Computing intent embeddings...")
+INTENT_EMBEDDINGS: Dict[str, np.ndarray] = {}
+for intent, examples in INTENT_EXAMPLES.items():
+    embeddings = model.encode(examples)
+    INTENT_EMBEDDINGS[intent] = np.mean(embeddings, axis=0)
+print(f"[NLP] {len(INTENT_EMBEDDINGS)} intent embeddings ready.")
 
 
 def detect_intent(text: str) -> Tuple[str, float]:
     """
-    Detect the user's intent using NLP preprocessing + keyword matching with scoring.
-    Returns (intent_name, confidence_score).
+    Detect intent using semantic similarity (sentence-transformers).
+    Returns (intent_name, confidence_score 0-1).
     """
-    tokens = preprocess(text)
-    text_lower = _remove_accents(text.lower())
+    if not text.strip():
+        return "unknown", 0.0
 
+    # Encode user message
+    user_embedding = model.encode([text])[0]
+
+    # Compute cosine similarity with each intent
     best_intent = "unknown"
     best_score = 0.0
 
-    for intent, keywords in INTENT_PATTERNS.items():
-        score = 0.0
-
-        for keyword in keywords:
-            keyword_normalized = _remove_accents(keyword)
-
-            # Exact phrase match in original text (highest weight)
-            if keyword_normalized in text_lower:
-                score += 0.5 * len(keyword_normalized.split())
-
-            # Token-level match
-            keyword_tokens = keyword_normalized.split()
-            matched_tokens = sum(1 for kt in keyword_tokens if kt in tokens)
-            if matched_tokens > 0:
-                score += 0.3 * (matched_tokens / len(keyword_tokens))
+    for intent, intent_embedding in INTENT_EMBEDDINGS.items():
+        score = cosine_similarity(
+            user_embedding.reshape(1, -1),
+            intent_embedding.reshape(1, -1)
+        )[0][0]
 
         if score > best_score:
             best_score = score
             best_intent = intent
 
-    # Normalize confidence to 0-1
-    confidence = min(best_score, 1.0)
+    # Confidence threshold
+    if best_score < 0.35:
+        return "unknown", round(best_score, 2)
 
-    # Fallback: question detection
-    if confidence < 0.2:
-        if any(w in text_lower for w in ["comment", "how", "quoi", "what", "ou", "where", "pourquoi", "why"]):
-            return "help", 0.3
-        if any(w in text_lower for w in ["combien", "how much", "prix", "price", "cout"]):
-            return "ticket_price", 0.3
-
-    return best_intent, round(confidence, 2)
+    return best_intent, round(float(best_score), 2)
 
 
 def extract_entities(text: str) -> Dict[str, str]:
     """
-    Extract entities from user message using regex patterns and POS tagging.
+    Extract entities using NLTK (regex + POS tagging).
+    Handles: order IDs, amounts, dates, proper nouns.
     """
     entities = {}
 
-    # Extract order ID
+    # Order ID
     order_match = re.search(r'(?:commande|order)\s*#?\s*(\d+)', text, re.IGNORECASE)
     if order_match:
         entities["order_id"] = order_match.group(1)
 
-    # Extract numbers (prices, quantities)
-    number_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:dt|dinar|€|eur)', text, re.IGNORECASE)
-    if number_match:
-        entities["amount"] = number_match.group(1)
+    # Amounts / prices
+    amount_match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:dt|dinar|€|eur|dinars)', text, re.IGNORECASE)
+    if amount_match:
+        entities["amount"] = amount_match.group(1).replace(',', '.')
 
-    # Extract dates
+    # Dates
     date_match = re.search(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', text)
     if date_match:
         entities["date"] = date_match.group(1)
 
-    # POS tagging for proper nouns (names, places)
+    # Event/course name extraction (after keywords)
+    name_match = re.search(r'(?:événement|event|cours|course|expo)\s+["\']?([^"\'?,]+)', text, re.IGNORECASE)
+    if name_match:
+        entities["name"] = name_match.group(1).strip()
+
+    # POS tagging for proper nouns
     try:
         tokens = word_tokenize(text)
         tagged = nltk.pos_tag(tokens)
         proper_nouns = [word for word, tag in tagged if tag in ('NNP', 'NNPS')]
         if proper_nouns:
-            entities["name"] = " ".join(proper_nouns)
+            entities["proper_nouns"] = " ".join(proper_nouns)
     except Exception:
         pass
 
     return entities
-
-
-def _remove_accents(text: str) -> str:
-    """Remove French accents for better keyword matching."""
-    replacements = {
-        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-        'à': 'a', 'â': 'a', 'ä': 'a',
-        'ù': 'u', 'û': 'u', 'ü': 'u',
-        'î': 'i', 'ï': 'i',
-        'ô': 'o', 'ö': 'o',
-        'ç': 'c',
-    }
-    for accent, replacement in replacements.items():
-        text = text.replace(accent, replacement)
-    return text

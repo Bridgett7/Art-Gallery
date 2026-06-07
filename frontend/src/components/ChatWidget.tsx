@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Typography, Space, Tag, Spin } from 'antd';
 import { MessageOutlined, CloseOutlined, SendOutlined, RobotOutlined, ClearOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
 
@@ -53,6 +54,7 @@ const STORAGE_KEY_PREFIX = "metamuse_chat_";
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const { user } = useAuth();
 
   const storageKey = `${STORAGE_KEY_PREFIX}${user?.userId || 'guest'}`;
@@ -120,7 +122,7 @@ export default function ChatWidget() {
     setLoading(true);
 
     try {
-      const res = await api.post('/chat', { message: text });
+      const res = await api.post('/chat', { message: text, lang: i18n.language });
       const data = res.data;
       const botMsg: Message = {
         id: msgIdRef.current++,

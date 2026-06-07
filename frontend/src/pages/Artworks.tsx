@@ -155,7 +155,7 @@ export default function Artworks() {
           .filter(a => !filterCategory || a.category?.id === filterCategory)
           .filter(a => !filterArtist || a.artist?.username === filterArtist)
           .slice((currentPage - 1) * pageSize, currentPage * pageSize).map(artwork => (
-          <Col xs={24} sm={12} md={8} lg={6} key={artwork.id}>
+          <Col xs={24} sm={12} md={8} key={artwork.id}>
             <Card
               hoverable
               cover={

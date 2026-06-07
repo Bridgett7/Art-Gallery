@@ -18,26 +18,26 @@ def process_message():
     user_id = body.get("userId", "")
     role = (body.get("role") or "VISITOR").upper()
     username = body.get("username", "")
+    lang = body.get("lang", "fr")
     data = body.get("data")
 
-    print(f"[CHAT] message='{message}' role={role} username={username} hasData={data is not None}")
+    print(f"[CHAT] message='{message}' role={role} lang={lang} username={username} hasData={data is not None}")
 
     # NLP processing
     intent, confidence = detect_intent(message)
     entities = extract_entities(message)
 
-    # Generate response (role-aware)
+    # Generate response (role-aware, bilingual)
     if intent in DYNAMIC_INTENTS and data:
-        response_data = get_response(intent, data, role, username)
+        response_data = get_response(intent, data, role, username, lang)
     elif intent in DYNAMIC_INTENTS and not data:
-        # Dynamic intent but no data yet — check if static response exists for this role
-        static_check = get_response(intent, role=role, username=username)
+        static_check = get_response(intent, role=role, username=username, lang=lang)
         if static_check.get("needsData"):
             response_data = static_check
         else:
             response_data = static_check
     else:
-        response_data = get_response(intent, role=role, username=username)
+        response_data = get_response(intent, role=role, username=username, lang=lang)
 
     return jsonify({
         "intent": intent,
